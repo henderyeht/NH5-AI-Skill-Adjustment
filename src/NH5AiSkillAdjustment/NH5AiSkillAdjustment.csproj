@@ -9,8 +9,8 @@
     <AssemblyName>NH5AiSkillAdjustment</AssemblyName>
     <Product>NH5 AI Skill Adjustment Tool</Product>
     <AssemblyTitle>NH5 AI Skill Adjustment Tool</AssemblyTitle>
-    <Description>Local NASCAR Heat 5 AI skill slider (60-200).</Description>
-    <Version>1.0.2</Version>
+    <Description>Local NASCAR Heat 5 AI skill slider. 100% = vanilla pace, 200% = double. Forces native 105.</Description>
+    <Version>1.0.4</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GenerateSupportedRuntime>false</GenerateSupportedRuntime>

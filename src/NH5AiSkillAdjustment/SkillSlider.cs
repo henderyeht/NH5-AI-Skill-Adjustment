@@ -7,7 +7,7 @@ namespace NH5AiSkillAdjustment
 {
     internal sealed class SkillSlider : Control
     {
-        private int _value = 105;
+        private int _value = 100;
         private bool _dragging;
 
         public int Minimum { get; set; } = 60;

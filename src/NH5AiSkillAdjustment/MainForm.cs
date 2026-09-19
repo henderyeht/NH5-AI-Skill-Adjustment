@@ -21,7 +21,7 @@ namespace NH5AiSkillAdjustment
             MaximizeBox = false;
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(520, 430);
+            ClientSize = new Size(520, 448);
             BackColor = Theme.Asphalt;
             ForeColor = Theme.White;
             DoubleBuffered = true;
@@ -53,63 +53,62 @@ namespace NH5AiSkillAdjustment
             {
                 AutoSize = false,
                 Location = new Point(20, 78),
-                Size = new Size(480, 86),
+                Size = new Size(480, 102),
                 ForeColor = Theme.White,
                 BackColor = Theme.Panel,
                 Padding = new Padding(12, 10, 12, 10),
                 Text = "Close NASCAR Heat 5 first.\r\n"
-                     + "Vanilla Custom AI is 85–105. This slider goes 60–200 and writes that skill into your local game.\r\n"
-                     + "APPLY uses the selected value. RESTORE puts the original 85–105 clamp back.\r\n"
-                     + "The in-game Options slider still lists 85–105. Steam Verify also restores vanilla."
+                     + "Online has no AI difficulty option, so APPLY forces native 105. The slider is percent of vanilla pace.\r\n"
+                     + "100% = vanilla table. 200% = double pace. RESTORE or Steam Verify puts vanilla back."
             };
             Controls.Add(instructions);
 
             _value = new Label
             {
                 AutoSize = false,
-                Location = new Point(20, 172),
+                Location = new Point(20, 188),
                 Size = new Size(480, 48),
                 Font = new Font("Impact", 36, FontStyle.Regular, GraphicsUnit.Pixel),
                 ForeColor = Theme.Yellow,
                 BackColor = Theme.Asphalt,
                 TextAlign = ContentAlignment.MiddleCenter,
-                Text = "105"
+                Text = "100%"
             };
             Controls.Add(_value);
 
             _slider = new SkillSlider
             {
-                Location = new Point(28, 224),
+                Location = new Point(28, 240),
                 Size = new Size(464, 40),
                 BackColor = Theme.Asphalt,
                 Minimum = AiSkillPatcher.MinStrength,
                 Maximum = AiSkillPatcher.MaxStrength,
                 Value = AiSkillPatcher.VanillaCustom
             };
-            _slider.ValueChanged += (_, __) => { _value.Text = _slider.Value.ToString(); };
+            _slider.ValueChanged += (_, __) => { _value.Text = _slider.Value.ToString() + "%"; };
             Controls.Add(_slider);
 
             Controls.Add(new Label
             {
-                Text = "60",
-                Location = new Point(28, 264),
+                Text = "60%",
+                Location = new Point(28, 280),
                 Size = new Size(40, 18),
                 ForeColor = Theme.Mute,
                 BackColor = Theme.Asphalt
             });
             Controls.Add(new Label
             {
-                Text = "200",
-                Location = new Point(452, 264),
+                Text = "200%",
+                Location = new Point(452, 280),
                 Size = new Size(40, 18),
                 ForeColor = Theme.Mute,
                 BackColor = Theme.Asphalt,
                 TextAlign = ContentAlignment.TopRight
             });
 
-            var apply = MakeButton("APPLY", Theme.Red, Theme.White, new Point(28, 298), new Size(220, 42), 0);
+            var apply = MakeButton("APPLY", Theme.Red, Theme.White, new Point(28, 314), new Size(220, 42), 0);
             apply.Click += (_, __) => DoApply();
-            var restore = MakeButton("RESTORE", Color.FromArgb(24, 24, 26), Theme.Yellow, new Point(272, 298), new Size(220, 42), 2);
+            var restore = MakeButton("RESTORE", Color.FromArgb(24, 24, 26), Theme.Yellow, new Point(272, 314), new Size(220, 42), 2);
             restore.FlatAppearance.BorderColor = Theme.Yellow;
             restore.Click += (_, __) => DoRestore();
             Controls.Add(apply);
@@ -118,7 +117,7 @@ namespace NH5AiSkillAdjustment
             var locate = new LinkLabel
             {
                 Text = "Locate game…",
-                Location = new Point(28, 350),
+                Location = new Point(28, 366),
                 AutoSize = true,
                 LinkColor = Theme.Yellow,
                 ActiveLinkColor = Theme.White,
@@ -130,7 +129,7 @@ namespace NH5AiSkillAdjustment
 
             _path = new Label
             {
-                Location = new Point(150, 350),
+                Location = new Point(150, 366),
                 Size = new Size(342, 20),
                 ForeColor = Theme.Mute,
                 BackColor = Theme.Asphalt,
@@ -140,7 +139,7 @@ namespace NH5AiSkillAdjustment
 
             _status = new Label
             {
-                Location = new Point(28, 376),
+                Location = new Point(28, 392),
                 Size = new Size(464, 40),
                 ForeColor = Theme.Mute,
                 BackColor = Theme.Asphalt
@@ -188,13 +187,20 @@ namespace NH5AiSkillAdjustment
                 {
                     _slider.Value = target.Current.Value;
                     _status.ForeColor = Theme.Yellow;
-                    _status.Text = "Currently applied: " + target.Current.Value + "  (vanilla Custom is 85–105)";
+                    if (target.Current.Value > AiSkillPatcher.PercentBase && Math.Abs(target.Extra - 1f) < 0.001f)
+                    {
+                        _status.Text = "Old native-200 patch is still on (Heat reclamps it to 105). APPLY to make " + target.Current.Value + "% actually faster.";
+                    }
+                    else
+                    {
+                        _status.Text = AppliedMessage(target.Current.Value, target.Extra);
+                    }
                 }
                 else
                 {
                     _slider.Value = AiSkillPatcher.VanillaCustom;
                     _status.ForeColor = Theme.Mute;
-                    _status.Text = "Vanilla clamp is on (85–105). Move the slider, then APPLY.";
+                    _status.Text = "Vanilla is on (online Auto is ~97). Move the slider, then APPLY.";
                 }
             }
             catch (Exception ex)
@@ -233,7 +239,7 @@ namespace NH5AiSkillAdjustment
                 var patcher = RequirePatcher();
                 var value = patcher.Apply(_slider.Value);
                 _status.ForeColor = Theme.Yellow;
-                _status.Text = "Applied AI skill " + value + ". Close Heat before the next change.";
+                _status.Text = AppliedMessage(value, AiSkillPatcher.ExtraFor(value));
             }
             catch (Exception ex)
             {
@@ -251,14 +257,19 @@ namespace NH5AiSkillAdjustment
                 _slider.Value = AiSkillPatcher.VanillaCustom;
                 _status.ForeColor = Theme.Yellow;
                 _status.Text = kind == "already-stock"
-                    ? "Already using vanilla AI skill (85–105)."
-                    : "Restored vanilla AI skill (85–105).";
+                    ? "Already using vanilla AI (no table scale, no forced 105)."
+                    : "Restored vanilla AI. Online will use Auto again (~97).";
             }
             catch (Exception ex)
             {
                 _status.ForeColor = Color.FromArgb(255, 120, 90);
                 _status.Text = ex.Message;
             }
+        }
+
+        private static string AppliedMessage(int value, float extra)
+        {
+            return "Applied " + value + "% (" + extra.ToString("0.00") + "x vanilla table, native 105). Close Heat before the next change.";
         }
 
         private AiSkillPatcher RequirePatcher()
