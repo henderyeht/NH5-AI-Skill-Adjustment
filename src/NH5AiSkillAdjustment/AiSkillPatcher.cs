@@ -162,12 +162,18 @@ namespace NH5AiSkillAdjustment
             throw new InvalidOperationException("Could not find Heat 5 AI skill code in this DLL. Locate NASCARHeat5_Data\\Managed.");
         }
 
+        // Unity 2017 tiny methods: keep short-form opcodes only.
+        // ldc.i4 (4-byte operand) made GetEffectiveRating invalid (InvalidProgramException on race load).
+        // Return 85 + sbyte(delta) so 60-200 fits in the original 15-byte body.
         private static byte[] NewForcedRatingBytes(int value)
         {
+            var delta = value - 85;
             var patch = new byte[15];
-            var intBytes = BitConverter.GetBytes(value);
-            patch[0] = 0x20;
-            Array.Copy(intBytes, 0, patch, 1, 4);
+            patch[0] = 0x1F;
+            patch[1] = 85;
+            patch[2] = 0x1F;
+            patch[3] = unchecked((byte)(sbyte)delta);
+            patch[4] = 0x58;
             patch[5] = 0x2A;
             return patch;
         }
@@ -176,6 +182,25 @@ namespace NH5AiSkillAdjustment
         {
             if (off < 0 || off + 15 > bytes.Length)
             {
+                return null;
+            }
+
+            if (bytes[off] == 0x1F && bytes[off + 1] == 85 && bytes[off + 2] == 0x1F && bytes[off + 4] == 0x58 && bytes[off + 5] == 0x2A)
+            {
+                for (var i = 6; i < 15; i++)
+                {
+                    if (bytes[off + i] != 0)
+                    {
+                        return null;
+                    }
+                }
+
+                var n = 85 + (sbyte)bytes[off + 3];
+                if (n >= MinStrength && n <= MaxStrength)
+                {
+                    return n;
+                }
+
                 return null;
             }
 

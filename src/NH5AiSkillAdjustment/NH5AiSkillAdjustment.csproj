@@ -10,7 +10,7 @@
     <Product>NH5 AI Skill Adjustment Tool</Product>
     <AssemblyTitle>NH5 AI Skill Adjustment Tool</AssemblyTitle>
     <Description>Local NASCAR Heat 5 AI skill slider (60-200).</Description>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GenerateSupportedRuntime>false</GenerateSupportedRuntime>
