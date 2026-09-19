@@ -54,22 +54,6 @@ namespace NH5AiSkillAdjustment
             0x06, 0x17, 0x58, 0x0A, 0x38
         };
 
-        // SkillTable ctor: ldc.r4 1.05; stfld max_adjusted_skill (token 0x04002D97 on live Steam)
-        private static readonly byte[] MaxAdjNeedle =
-        {
-            0x22, 0x66, 0x66, 0x86, 0x3F, 0x7D, 0x97, 0x2D, 0x00, 0x04
-        };
-
-        private static readonly byte[] MaxAdjPrefix =
-        {
-            0x22, 0x00, 0x00, 0x80, 0x3F, 0x7D, 0x96, 0x2D, 0x00, 0x04, 0x02, 0x22
-        };
-
-        private static readonly byte[] MaxAdjSuffix =
-        {
-            0x7D, 0x97, 0x2D, 0x00, 0x04
-        };
-
         private readonly string _dllPath;
         private readonly string _statePath;
 
@@ -352,30 +336,58 @@ namespace NH5AiSkillAdjustment
 
         private static int FindMaxAdjFloatOffset(byte[] bytes)
         {
-            var stock = IndexOf(bytes, MaxAdjNeedle, 0);
-            if (stock >= 0)
+            // SkillTable ctor: draft_skill_f = 1f; max_adjusted_skill = 1.05f * extra; speedrating_laptime_override = -1f.
+            // Field tokens move between Base Steam (0x04002D98) and Next Gen (0x04002D97). Do not hardcode them.
+            for (var i = 0; i + 32 <= bytes.Length; i++)
             {
-                return stock + 1;
-            }
-
-            var p = 0;
-            while (true)
-            {
-                var i = IndexOf(bytes, MaxAdjPrefix, p);
-                if (i < 0)
+                if (bytes[i] != 0x22)
                 {
-                    return -1;
+                    continue;
                 }
 
-                var floatOff = i + MaxAdjPrefix.Length;
-                if (floatOff + 4 + MaxAdjSuffix.Length <= bytes.Length
-                    && IndexOf(bytes, MaxAdjSuffix, floatOff + 4) == floatOff + 4)
+                if (bytes[i + 1] != 0x00 || bytes[i + 2] != 0x00 || bytes[i + 3] != 0x80 || bytes[i + 4] != 0x3F)
                 {
-                    return floatOff;
+                    continue;
                 }
 
-                p = i + 1;
+                if (bytes[i + 5] != 0x7D || bytes[i + 8] != 0x00 || bytes[i + 9] != 0x04)
+                {
+                    continue;
+                }
+
+                if (bytes[i + 10] != 0x02 || bytes[i + 11] != 0x22)
+                {
+                    continue;
+                }
+
+                if (bytes[i + 16] != 0x7D || bytes[i + 19] != 0x00 || bytes[i + 20] != 0x04)
+                {
+                    continue;
+                }
+
+                if (bytes[i + 21] != 0x02 || bytes[i + 22] != 0x22)
+                {
+                    continue;
+                }
+
+                if (bytes[i + 23] != 0x00 || bytes[i + 24] != 0x00 || bytes[i + 25] != 0x80 || bytes[i + 26] != 0xBF)
+                {
+                    continue;
+                }
+
+                if (bytes[i + 27] != 0x7D || bytes[i + 30] != 0x00 || bytes[i + 31] != 0x04)
+                {
+                    continue;
+                }
+
+                var maxAdj = BitConverter.ToSingle(bytes, i + 12);
+                if (maxAdj >= 1.049f && maxAdj <= 2.51f)
+                {
+                    return i + 12;
+                }
             }
+
+            return -1;
         }
 
         private static float ReadExtra(byte[] bytes, Sites sites)
