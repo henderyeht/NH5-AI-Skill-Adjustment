@@ -27,7 +27,8 @@ dotnet publish src\NH5AiSkillAdjustment\NH5AiSkillAdjustment.csproj -c Release -
 
 Requires .NET SDK to build. Testers only need the exe (Windows with .NET Framework 4.8, which ships with Windows 10/11).
 
-v1.0.1: Unity 2017 rejected a 4-byte `ldc.i4` inside this tiny method (`InvalidProgramException` on race load). The patch now returns `85 + delta` with short-form opcodes only.
+v1.0.2: Do not leave nops after `ret` in the tiny method. Every byte through return is live IL (`85 + delta`).
+v1.0.1: Unity 2017 rejected a 4-byte `ldc.i4` inside this tiny method (`InvalidProgramException` on race load).
 
 ## Layout
 

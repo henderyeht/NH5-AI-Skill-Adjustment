@@ -162,20 +162,24 @@ namespace NH5AiSkillAdjustment
             throw new InvalidOperationException("Could not find Heat 5 AI skill code in this DLL. Locate NASCARHeat5_Data\\Managed.");
         }
 
-        // Unity 2017 tiny methods: keep short-form opcodes only.
-        // ldc.i4 (4-byte operand) made GetEffectiveRating invalid (InvalidProgramException on race load).
-        // Return 85 + sbyte(delta) so 60-200 fits in the original 15-byte body.
+        // Unity 2017 tiny method is exactly 15 bytes. Dead nops after ret still
+        // fail verification (InvalidProgramException at race load). Every byte
+        // through ret must be reachable. 85 + sbyte delta covers 60-200.
         private static byte[] NewForcedRatingBytes(int value)
         {
-            var delta = value - 85;
-            var patch = new byte[15];
-            patch[0] = 0x1F;
-            patch[1] = 85;
-            patch[2] = 0x1F;
-            patch[3] = unchecked((byte)(sbyte)delta);
-            patch[4] = 0x58;
-            patch[5] = 0x2A;
-            return patch;
+            var delta = unchecked((byte)(sbyte)(value - 85));
+            return new byte[]
+            {
+                0x1F, 85,   // ldc.i4.s 85
+                0x1F, delta, // ldc.i4.s (value - 85)
+                0x58,       // add
+                0x16, 0x58, // +0
+                0x16, 0x58,
+                0x16, 0x58,
+                0x16, 0x58,
+                0x00,       // nop
+                0x2A        // ret
+            };
         }
 
         private static int? GetForcedRatingAt(byte[] bytes, int off)
@@ -185,54 +189,26 @@ namespace NH5AiSkillAdjustment
                 return null;
             }
 
-            if (bytes[off] == 0x1F && bytes[off + 1] == 85 && bytes[off + 2] == 0x1F && bytes[off + 4] == 0x58 && bytes[off + 5] == 0x2A)
+            if (bytes[off] == 0x1F && bytes[off + 1] == 85 && bytes[off + 2] == 0x1F && bytes[off + 4] == 0x58)
             {
-                for (var i = 6; i < 15; i++)
-                {
-                    if (bytes[off + i] != 0)
-                    {
-                        return null;
-                    }
-                }
-
                 var n = 85 + (sbyte)bytes[off + 3];
                 if (n >= MinStrength && n <= MaxStrength)
                 {
                     return n;
                 }
-
-                return null;
             }
 
             if (bytes[off] == 0x20 && bytes[off + 5] == 0x2A)
             {
-                for (var i = 6; i < 15; i++)
-                {
-                    if (bytes[off + i] != 0)
-                    {
-                        return null;
-                    }
-                }
-
                 var n = BitConverter.ToInt32(bytes, off + 1);
                 if (n >= MinStrength && n <= MaxStrength)
                 {
                     return n;
                 }
-
-                return null;
             }
 
             if (bytes[off] == 0x1F && bytes[off + 2] == 0x2A)
             {
-                for (var i = 3; i < 15; i++)
-                {
-                    if (bytes[off + i] != 0)
-                    {
-                        return null;
-                    }
-                }
-
                 var n = bytes[off + 1];
                 if (n >= MinStrength && n <= 127)
                 {
