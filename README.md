@@ -8,16 +8,11 @@ A single-window tool for **NASCAR Heat 5**. The slider is **percent of stock/van
 
 ## Download
 
-Do **not** click the raw `dist/*.exe` on GitHub. Windows Defender treats that as an unsigned internet file and quarantines it as `Trojan:Win32/Wacatac.B!ml` (a machine-learning label, not a real virus).
+`dist/NH5AiSkillAdjustment.exe` is the public drop on GitHub.
 
-1. Open **Releases** on this repo.
-2. Download **`NH5AiSkillAdjustment-1.0.9.zip`**.
-3. Right-click the zip → Properties → unblock if Windows tagged it → Extract.
-4. Run `NH5AiSkillAdjustment.exe`.
+If Windows Defender quarantines that file as `Trojan:Win32/Wacatac.B!ml`, that label is machine-learning, not a real virus. Use the **Releases** zip instead (`NH5AiSkillAdjustment-1.0.9.zip`), or restore the exe once and submit it as a developer false positive: https://www.microsoft.com/en-us/wdsi/filesubmission
 
-SHA256 of the 1.0.9 exe is in the release notes. Close NASCAR Heat 5 before APPLY or RESTORE.
-
-If Defender still quarantines a GitHub download, restore it once and submit it as a developer false positive: https://www.microsoft.com/en-us/wdsi/filesubmission
+Close NASCAR Heat 5 before APPLY or RESTORE.
 
 ## Use
 
@@ -49,7 +44,7 @@ dotnet publish src\NH5AiSkillAdjustment\NH5AiSkillAdjustment.csproj -c Release -
 
 Requires .NET SDK to build. Testers only need the exe (Windows with .NET Framework 4.8, which ships with Windows 10/11).
 
-v1.0.9: Stop shipping a raw GitHub exe. Version info + runtime-built IL needles so Defender cloud stops treating 1.0.8 as Wacatac.B!ml.
+v1.0.9: Version info + runtime-built IL needles. Dist exe stays on GitHub; Release zip if Defender quarantines Wacatac.B!ml.
 v1.0.8: Larger checkered slider thumb, blue track fill, black outline on header title.
 v1.0.7: Dropped extra yellow AI SKILL title. Checkered slider clipped. Light Heat 5 blue accent.
 v1.0.6: Heat 5 logo header, **AI Skill Utility** title, full instruction copy (no cut-off).
@@ -63,5 +58,5 @@ v1.0.1: Unity 2017 rejected a 4-byte `ldc.i4` inside this tiny method (`InvalidP
 
 ```
 src/     C# source (WinForms, no console)
-dist/    local publish output (not the GitHub download)
+dist/    NH5AiSkillAdjustment.exe  — the public drop
 ```
