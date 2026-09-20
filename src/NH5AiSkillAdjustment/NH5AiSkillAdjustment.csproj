@@ -9,13 +9,18 @@
     <AssemblyName>NH5AiSkillAdjustment</AssemblyName>
     <Product>NASCAR Heat 5 AI Skill Utility</Product>
     <AssemblyTitle>NASCAR Heat 5 AI Skill Utility</AssemblyTitle>
+    <Company>NH5 Multiplayer Revival</Company>
+    <Authors>NH5 Multiplayer Revival</Authors>
+    <Copyright>Copyright (c) 2026</Copyright>
     <Description>Local NASCAR Heat 5 AI skill slider. 100% = stock/vanilla strength, 200% = double.</Description>
-    <Version>1.0.8</Version>
+    <Version>1.0.9</Version>
+    <FileVersion>1.0.9.0</FileVersion>
+    <InformationalVersion>1.0.9</InformationalVersion>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GenerateSupportedRuntime>false</GenerateSupportedRuntime>
-    <DebugType>none</DebugType>
-    <DebugSymbols>false</DebugSymbols>
+    <DebugType>embedded</DebugType>
+    <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="Assets\heat5-logo.png" LogicalName="NH5AiSkillAdjustment.heat5-logo.png" />

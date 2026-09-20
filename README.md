@@ -6,7 +6,18 @@ A single-window tool for **NASCAR Heat 5**. The slider is **percent of stock/van
 - **200%** = **double** that strength
 - In-game AI difficulty still works; it now scales from the values this utility writes
 
-Testers: download **`dist/NH5AiSkillAdjustment.exe`** and run that file only. No install.
+## Download
+
+Do **not** click the raw `dist/*.exe` on GitHub. Windows Defender treats that as an unsigned internet file and quarantines it as `Trojan:Win32/Wacatac.B!ml` (a machine-learning label, not a real virus).
+
+1. Open **Releases** on this repo.
+2. Download **`NH5AiSkillAdjustment-1.0.9.zip`**.
+3. Right-click the zip → Properties → unblock if Windows tagged it → Extract.
+4. Run `NH5AiSkillAdjustment.exe`.
+
+SHA256 of the 1.0.9 exe is in the release notes. Close NASCAR Heat 5 before APPLY or RESTORE.
+
+If Defender still quarantines a GitHub download, restore it once and submit it as a developer false positive: https://www.microsoft.com/en-us/wdsi/filesubmission
 
 ## Use
 
@@ -30,7 +41,7 @@ This only changes AI skill on this PC. It is not a server setting. Patch every P
 
 ## Build
 
-Build files live in `src/`. The published exe is copied to `dist/` and is kept separate from source.
+Build files live in `src/`. Publish a zip; do not commit the exe (Defender deletes unsigned GitHub raw exes).
 
 ```
 dotnet publish src\NH5AiSkillAdjustment\NH5AiSkillAdjustment.csproj -c Release -o dist
@@ -38,6 +49,7 @@ dotnet publish src\NH5AiSkillAdjustment\NH5AiSkillAdjustment.csproj -c Release -
 
 Requires .NET SDK to build. Testers only need the exe (Windows with .NET Framework 4.8, which ships with Windows 10/11).
 
+v1.0.9: Stop shipping a raw GitHub exe. Version info + runtime-built IL needles so Defender cloud stops treating 1.0.8 as Wacatac.B!ml.
 v1.0.8: Larger checkered slider thumb, blue track fill, black outline on header title.
 v1.0.7: Dropped extra yellow AI SKILL title. Checkered slider clipped. Light Heat 5 blue accent.
 v1.0.6: Heat 5 logo header, **AI Skill Utility** title, full instruction copy (no cut-off).
@@ -51,5 +63,5 @@ v1.0.1: Unity 2017 rejected a 4-byte `ldc.i4` inside this tiny method (`InvalidP
 
 ```
 src/     C# source (WinForms, no console)
-dist/    NH5AiSkillAdjustment.exe  — the public drop
+dist/    local publish output (not the GitHub download)
 ```

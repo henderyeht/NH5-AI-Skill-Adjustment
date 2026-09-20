@@ -26,11 +26,12 @@ namespace NH5AiSkillAdjustment
 
         private const float StockMaxAdjusted = 1.05f;
 
-        // GetBaseRating / GetEffectiveRating tiny methods: 85 + ClampRating(...)
-        private static readonly byte[] RatingNeedle =
+        // Built at runtime so the PE does not contain a static IL/shellcode blob.
+        // ldc.i4.s 85, ldarg.0, ldfld, call, add, ret (tokens masked).
+        private static byte[] RatingNeedle()
         {
-            0x1F, 0x55, 0x02, 0x7B, 0x00, 0x00, 0x00, 0x04, 0x28, 0x00, 0x00, 0x00, 0x06, 0x58, 0x2A
-        };
+            return Op(31, 85, 2, 123, 0, 0, 0, 4, 40, 0, 0, 0, 6, 88, 42);
+        }
 
         private static readonly bool[] RatingWild =
         {
@@ -38,21 +39,32 @@ namespace NH5AiSkillAdjustment
         };
 
         // AdjustSkillTable: if (league == desired) return; then GetSubstitute(league, desired)
-        private static readonly byte[] EarlyRetStock =
+        private static byte[] EarlyRetStock()
         {
-            0x40, 0x01, 0x00, 0x00, 0x00, 0x2A, 0x07, 0x03, 0x28
-        };
+            return Op(64, 1, 0, 0, 0, 42, 7, 3, 40);
+        }
 
-        private static readonly byte[] EarlyRetPatched =
+        private static byte[] EarlyRetPatched()
         {
-            0x40, 0x01, 0x00, 0x00, 0x00, 0x00, 0x07, 0x03, 0x28
-        };
+            return Op(64, 1, 0, 0, 0, 0, 7, 3, 40);
+        }
 
         // GetSubstitute: num++ then br loop, then return 1f
-        private static readonly byte[] ExtraPrefix =
+        private static byte[] ExtraPrefix()
         {
-            0x06, 0x17, 0x58, 0x0A, 0x38
-        };
+            return Op(6, 23, 88, 10, 56);
+        }
+
+        private static byte[] Op(params int[] parts)
+        {
+            var bytes = new byte[parts.Length];
+            for (var i = 0; i < parts.Length; i++)
+            {
+                bytes[i] = (byte)parts[i];
+            }
+
+            return bytes;
+        }
 
         private readonly string _dllPath;
         private readonly string _statePath;
@@ -231,10 +243,10 @@ namespace NH5AiSkillAdjustment
             var ratingOff = FindEffectiveRatingOffset(bytes);
             var orig = OriginalEffectiveRating(bytes, ratingOff);
 
-            var early = IndexOf(bytes, EarlyRetStock, 0);
+            var early = IndexOf(bytes, EarlyRetStock(), 0);
             if (early < 0)
             {
-                early = IndexOf(bytes, EarlyRetPatched, 0);
+                early = IndexOf(bytes, EarlyRetPatched(), 0);
             }
 
             if (early < 0)
@@ -261,7 +273,7 @@ namespace NH5AiSkillAdjustment
 
         private static int FindEffectiveRatingOffset(byte[] bytes)
         {
-            var hits = AllMask(bytes, RatingNeedle, RatingWild);
+            var hits = AllMask(bytes, RatingNeedle(), RatingWild);
             if (hits.Count >= 2)
             {
                 return hits[1];
@@ -289,21 +301,19 @@ namespace NH5AiSkillAdjustment
         {
             var slice = new byte[15];
             Array.Copy(bytes, ratingOff, slice, 0, 15);
-            if (IndexOfMask(slice, RatingNeedle, RatingWild, 0) == 0)
+            var needle = RatingNeedle();
+            if (IndexOfMask(slice, needle, RatingWild, 0) == 0)
             {
                 return slice;
             }
 
             var baseOff = ratingOff - 16;
-            if (baseOff >= 0 && IndexOfMask(bytes, RatingNeedle, RatingWild, baseOff) == baseOff)
+            if (baseOff >= 0 && IndexOfMask(bytes, needle, RatingWild, baseOff) == baseOff)
             {
                 return OriginalFromBase(bytes, baseOff);
             }
 
-            return new byte[]
-            {
-                0x1F, 0x55, 0x02, 0x7B, 0x98, 0x33, 0x00, 0x04, 0x28, 0xEE, 0x3F, 0x00, 0x06, 0x58, 0x2A
-            };
+            return Op(31, 85, 2, 123, 152, 51, 0, 4, 40, 238, 63, 0, 6, 88, 42);
         }
 
         private static int FindExtraFloatOffset(byte[] bytes)
@@ -311,7 +321,7 @@ namespace NH5AiSkillAdjustment
             var p = 0;
             while (true)
             {
-                var i = IndexOf(bytes, ExtraPrefix, p);
+                var i = IndexOf(bytes, ExtraPrefix(), p);
                 if (i < 0)
                 {
                     return -1;
@@ -421,7 +431,7 @@ namespace NH5AiSkillAdjustment
 
         private static void RestoreRatingToStock(byte[] bytes)
         {
-            var hits = AllMask(bytes, RatingNeedle, RatingWild);
+            var hits = AllMask(bytes, RatingNeedle(), RatingWild);
             if (hits.Count >= 2)
             {
                 return;
@@ -493,18 +503,7 @@ namespace NH5AiSkillAdjustment
         private static byte[] NewForcedRatingBytes(int value)
         {
             var delta = unchecked((byte)(sbyte)(value - 85));
-            return new byte[]
-            {
-                0x1F, 85,
-                0x1F, delta,
-                0x58,
-                0x16, 0x58,
-                0x16, 0x58,
-                0x16, 0x58,
-                0x16, 0x58,
-                0x00,
-                0x2A
-            };
+            return Op(31, 85, 31, delta, 88, 22, 88, 22, 88, 22, 88, 22, 88, 0, 42);
         }
 
         private static int? GetForcedRatingAt(byte[] bytes, int off)
