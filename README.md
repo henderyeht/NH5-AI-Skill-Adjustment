@@ -10,7 +10,14 @@ A single-window tool for **NASCAR Heat 5**. The slider is **percent of stock/van
 
 `dist/NH5AiSkillAdjustment.exe` is the public drop on GitHub.
 
-If Windows Defender quarantines that file as `Trojan:Win32/Wacatac.B!ml`, that label is machine-learning, not a real virus. Use the **Releases** zip instead (`NH5AiSkillAdjustment-1.0.9.zip`), or restore the exe once and submit it as a developer false positive: https://www.microsoft.com/en-us/wdsi/filesubmission
+If Windows Defender quarantines it as `Trojan:Win32/Wacatac.B!ml`, that is a machine-learning false positive, not a real virus. Allow the file in Windows Security:
+
+1. Open **Windows Security** → **Virus & threat protection**.
+2. Open **Protection history**.
+3. Select the blocked `NH5AiSkillAdjustment.exe`.
+4. Choose **Actions** → **Allow on device** (or Restore, then Allow).
+
+You can also add it under **Virus & threat protection** → **Manage settings** → **Exclusions** → **Add an exclusion** → **File**, and pick `NH5AiSkillAdjustment.exe`.
 
 Close NASCAR Heat 5 before APPLY or RESTORE.
 
@@ -36,32 +43,13 @@ This only changes AI skill on this PC. It is not a server setting. Patch every P
 
 ## Build
 
-Build files live in `src/`. Publish a zip; do not commit the exe (Defender deletes unsigned GitHub raw exes).
+Build files live in `src/`. Testers only need the exe from `dist/`.
 
 ```
 dotnet publish src\NH5AiSkillAdjustment\NH5AiSkillAdjustment.csproj -c Release -o dist
 ```
 
-Requires .NET SDK to build. Testers only need the exe (Windows with .NET Framework 4.8, which ships with Windows 10/11).
-
-v1.0.9: Version info + runtime-built IL needles. Dist exe stays on GitHub; Release zip if Defender quarantines Wacatac.B!ml.
-
-v1.0.8: Larger checkered slider thumb, blue track fill, black outline on header title.
-
-v1.0.7: Dropped extra yellow AI SKILL title. Checkered slider clipped. Light Heat 5 blue accent.
-
-v1.0.6: Heat 5 logo header, **AI Skill Utility** title, full instruction copy (no cut-off).
-
-v1.0.5: Locates SkillTable by ctor IL (1f / 1.05f / -1f), not the Next Gen field token. Base Steam / no-DLC copies work.
-
-v1.0.4: Slider is percent (`value/100`). 200% = 2× table. APPLY always forces native 105 (MP has no difficulty control).
-
-v1.0.3: Strength past 105 scaled SkillTable. Native Custom stayed 85–105. 200 was only +8%.
-
-v1.0.2: Do not leave nops after `ret` in the tiny method. Every byte through return is live IL (`85 + delta`).
-
-v1.0.1: Unity 2017 rejected a 4-byte `ldc.i4` inside this tiny method (`InvalidProgramException` on race load).
-
+Requires .NET SDK to build. The exe runs on Windows with .NET Framework 4.8 (ships with Windows 10/11).
 
 ## Layout
 
