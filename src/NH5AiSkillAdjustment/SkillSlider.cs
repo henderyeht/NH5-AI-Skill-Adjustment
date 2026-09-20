@@ -35,7 +35,7 @@ namespace NH5AiSkillAdjustment
         public SkillSlider()
         {
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
-            Height = 36;
+            Height = 52;
             Cursor = Cursors.Hand;
         }
 
@@ -45,7 +45,7 @@ namespace NH5AiSkillAdjustment
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.Clear(BackColor);
 
-            var track = new Rectangle(10, Height / 2 - 5, Width - 20, 10);
+            var track = new Rectangle(22, Height / 2 - 6, Width - 44, 12);
             using (var trackBrush = new SolidBrush(Theme.Track))
             {
                 g.FillRectangle(trackBrush, track);
@@ -53,18 +53,14 @@ namespace NH5AiSkillAdjustment
 
             var t = Maximum == Minimum ? 0f : (float)(Value - Minimum) / (Maximum - Minimum);
             var fillWidth = (int)(track.Width * t);
-            using (var yellow = new SolidBrush(Theme.Yellow))
+            using (var fill = new SolidBrush(Theme.Blue))
             {
-                g.FillRectangle(yellow, track.X, track.Y, fillWidth, track.Height);
+                g.FillRectangle(fill, track.X, track.Y, fillWidth, track.Height);
             }
 
             var thumbX = track.X + fillWidth;
-            var thumb = new Rectangle(thumbX - 9, Height / 2 - 14, 18, 28);
-            Theme.FillCheckered(g, thumb, 6);
-            using (var pen = new Pen(Theme.Yellow, 2))
-            {
-                g.DrawRectangle(pen, thumb);
-            }
+            var thumb = new Rectangle(thumbX - 20, Height / 2 - 23, 40, 46);
+            Theme.DrawCheckeredThumb(g, thumb, Theme.Yellow);
         }
 
         protected override void OnMouseDown(MouseEventArgs e)
@@ -98,7 +94,7 @@ namespace NH5AiSkillAdjustment
 
         private void SetFromX(int x)
         {
-            var track = new Rectangle(10, 0, Math.Max(1, Width - 20), Height);
+            var track = new Rectangle(22, 0, Math.Max(1, Width - 44), Height);
             var t = (x - track.X) / (float)track.Width;
             t = Math.Max(0f, Math.Min(1f, t));
             Value = Minimum + (int)Math.Round(t * (Maximum - Minimum));

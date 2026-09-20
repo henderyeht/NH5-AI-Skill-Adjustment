@@ -1,72 +1,73 @@
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Text;
+using System.IO;
+using System.Reflection;
 using System.Windows.Forms;
 
 namespace NH5AiSkillAdjustment
 {
     internal sealed class MainForm : Form
     {
+        private const int HeaderHeight = 110;
         private readonly SkillSlider _slider;
         private readonly Label _value;
         private readonly Label _status;
         private readonly Label _path;
         private readonly Icon _icon;
+        private readonly Image? _logo;
         private string? _managedDir;
 
         public MainForm()
         {
-            Text = "NH5 AI Skill Adjustment Tool";
+            Text = "NASCAR Heat 5 AI Skill Utility";
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(520, 448);
+            ClientSize = new Size(520, 652);
             BackColor = Theme.Asphalt;
             ForeColor = Theme.White;
             DoubleBuffered = true;
             Font = new Font("Segoe UI", 9.5f);
+            _logo = LoadLogo();
             _icon = MakeIcon();
             Icon = _icon;
 
-            Paint += (_, e) =>
+            Paint += (_, e) => DrawHeader(e.Graphics);
+
+            var instructionPanel = new Panel
             {
-                Theme.FillCheckered(e.Graphics, new Rectangle(0, 0, Width, 58), 10);
-                using (var shade = new SolidBrush(Color.FromArgb(130, 0, 0, 0)))
-                {
-                    e.Graphics.FillRectangle(shade, 0, 0, Width, 58);
-                }
-
-                using (var titleFont = new Font("Impact", 22, FontStyle.Regular, GraphicsUnit.Pixel))
-                using (var yellow = new SolidBrush(Theme.Yellow))
-                {
-                    e.Graphics.DrawString("AI SKILL", titleFont, yellow, 18, 16);
-                }
-
-                using (var stripe = new SolidBrush(Theme.Yellow))
-                {
-                    e.Graphics.FillRectangle(stripe, 0, 58, Width, 6);
-                }
+                Location = new Point(20, HeaderHeight + 18),
+                Size = new Size(480, 210),
+                BackColor = Theme.Panel,
+                Padding = new Padding(12, 10, 12, 10)
             };
-
-            var instructions = new Label
+            instructionPanel.Paint += (_, e) => Theme.PaintLeftAccent(e.Graphics, instructionPanel.Height);
+            instructionPanel.Controls.Add(new Label
             {
+                Dock = DockStyle.Fill,
                 AutoSize = false,
-                Location = new Point(20, 78),
-                Size = new Size(480, 102),
                 ForeColor = Theme.White,
                 BackColor = Theme.Panel,
-                Padding = new Padding(12, 10, 12, 10),
-                Text = "Close NASCAR Heat 5 first.\r\n"
-                     + "Online has no AI difficulty option, so APPLY forces native 105. The slider is percent of vanilla pace.\r\n"
-                     + "100% = vanilla table. 200% = double pace. RESTORE or Steam Verify puts vanilla back."
-            };
-            Controls.Add(instructions);
+                Padding = new Padding(4, 0, 0, 0),
+                Text = "Close NASCAR Heat 5 before making changes.\r\n"
+                     + "\r\n"
+                     + "Use the slider to adjust global AI strength.\r\n"
+                     + "100% = stock/vanilla strength.\r\n"
+                     + "200% = double the stock AI strength.\r\n"
+                     + "\r\n"
+                     + "The in-game AI difficulty setting still works normally, but it will now scale from the new values written by this utility.\r\n"
+                     + "\r\n"
+                     + "RESTORE returns all AI values to their original stock/vanilla settings."
+            });
+            Controls.Add(instructionPanel);
 
             _value = new Label
             {
                 AutoSize = false,
-                Location = new Point(20, 188),
+                Location = new Point(20, 350),
                 Size = new Size(480, 48),
                 Font = new Font("Impact", 36, FontStyle.Regular, GraphicsUnit.Pixel),
                 ForeColor = Theme.Yellow,
@@ -78,8 +79,8 @@ namespace NH5AiSkillAdjustment
 
             _slider = new SkillSlider
             {
-                Location = new Point(28, 240),
-                Size = new Size(464, 40),
+                Location = new Point(28, 402),
+                Size = new Size(464, 52),
                 BackColor = Theme.Asphalt,
                 Minimum = AiSkillPatcher.MinStrength,
                 Maximum = AiSkillPatcher.MaxStrength,
@@ -91,7 +92,7 @@ namespace NH5AiSkillAdjustment
             Controls.Add(new Label
             {
                 Text = "60%",
-                Location = new Point(28, 280),
+                Location = new Point(28, 458),
                 Size = new Size(40, 18),
                 ForeColor = Theme.Mute,
                 BackColor = Theme.Asphalt
@@ -99,16 +100,16 @@ namespace NH5AiSkillAdjustment
             Controls.Add(new Label
             {
                 Text = "200%",
-                Location = new Point(452, 280),
+                Location = new Point(452, 458),
                 Size = new Size(40, 18),
                 ForeColor = Theme.Mute,
                 BackColor = Theme.Asphalt,
                 TextAlign = ContentAlignment.TopRight
             });
 
-            var apply = MakeButton("APPLY", Theme.Red, Theme.White, new Point(28, 314), new Size(220, 42), 0);
+            var apply = MakeButton("APPLY", Theme.Red, Theme.White, new Point(28, 492), new Size(220, 42), 0);
             apply.Click += (_, __) => DoApply();
-            var restore = MakeButton("RESTORE", Color.FromArgb(24, 24, 26), Theme.Yellow, new Point(272, 314), new Size(220, 42), 2);
+            var restore = MakeButton("RESTORE", Color.FromArgb(24, 24, 26), Theme.Yellow, new Point(272, 492), new Size(220, 42), 2);
             restore.FlatAppearance.BorderColor = Theme.Yellow;
             restore.Click += (_, __) => DoRestore();
             Controls.Add(apply);
@@ -117,7 +118,7 @@ namespace NH5AiSkillAdjustment
             var locate = new LinkLabel
             {
                 Text = "Locate game…",
-                Location = new Point(28, 366),
+                Location = new Point(28, 548),
                 AutoSize = true,
                 LinkColor = Theme.Yellow,
                 ActiveLinkColor = Theme.White,
@@ -129,7 +130,7 @@ namespace NH5AiSkillAdjustment
 
             _path = new Label
             {
-                Location = new Point(150, 366),
+                Location = new Point(150, 548),
                 Size = new Size(342, 20),
                 ForeColor = Theme.Mute,
                 BackColor = Theme.Asphalt,
@@ -139,14 +140,65 @@ namespace NH5AiSkillAdjustment
 
             _status = new Label
             {
-                Location = new Point(28, 392),
-                Size = new Size(464, 40),
+                Location = new Point(28, 576),
+                Size = new Size(464, 56),
                 ForeColor = Theme.Mute,
                 BackColor = Theme.Asphalt
             };
             Controls.Add(_status);
 
             LoadGame(GameLocator.FindManagedDir());
+        }
+
+        private void DrawHeader(Graphics g)
+        {
+            g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+            Theme.FillCheckered(g, new Rectangle(0, 0, ClientSize.Width, HeaderHeight), 10);
+            using (var shade = new SolidBrush(Color.FromArgb(150, 0, 0, 0)))
+            {
+                g.FillRectangle(shade, 0, 0, ClientSize.Width, HeaderHeight);
+            }
+
+            var logoDest = new Rectangle(14, 14, 248, 81);
+            if (_logo != null)
+            {
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                g.DrawImage(_logo, logoDest);
+            }
+
+            using (var titleFont = new Font("Segoe UI", 15.5f, FontStyle.Bold))
+            using (var format = new StringFormat())
+            {
+                format.Alignment = StringAlignment.Near;
+                format.LineAlignment = StringAlignment.Center;
+                var titleRect = new RectangleF(270, 14, Math.Max(40, ClientSize.Width - 284), 81);
+                Theme.DrawOutlinedText(g, "AI Skill Utility", titleFont, titleRect, format);
+            }
+
+            Theme.DrawHeaderStripes(g, HeaderHeight, ClientSize.Width);
+        }
+
+        private static Image? LoadLogo()
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            using (var stream = assembly.GetManifestResourceStream("NH5AiSkillAdjustment.heat5-logo.png"))
+            {
+                if (stream == null)
+                {
+                    return null;
+                }
+
+                using (var copy = new MemoryStream())
+                {
+                    stream.CopyTo(copy);
+                    copy.Position = 0;
+                    using (var loaded = Image.FromStream(copy))
+                    {
+                        return new Bitmap(loaded);
+                    }
+                }
+            }
         }
 
         private static Button MakeButton(string text, Color back, Color fore, Point loc, Size size, int border)
@@ -287,6 +339,7 @@ namespace NH5AiSkillAdjustment
             if (disposing)
             {
                 _icon?.Dispose();
+                _logo?.Dispose();
             }
 
             base.Dispose(disposing);
@@ -299,6 +352,10 @@ namespace NH5AiSkillAdjustment
             {
                 g.SmoothingMode = SmoothingMode.None;
                 Theme.FillCheckered(g, new Rectangle(0, 0, 32, 32), 8);
+                using (var blue = new SolidBrush(Theme.Blue))
+                {
+                    g.FillRectangle(blue, 0, 0, 4, 32);
+                }
                 using (var yellow = new Pen(Theme.Yellow, 3))
                 {
                     g.DrawRectangle(yellow, 1, 1, 29, 29);

@@ -7,14 +7,17 @@
     <Nullable>enable</Nullable>
     <RootNamespace>NH5AiSkillAdjustment</RootNamespace>
     <AssemblyName>NH5AiSkillAdjustment</AssemblyName>
-    <Product>NH5 AI Skill Adjustment Tool</Product>
-    <AssemblyTitle>NH5 AI Skill Adjustment Tool</AssemblyTitle>
-    <Description>Local NASCAR Heat 5 AI skill slider. 100% = vanilla pace, 200% = double. Forces native 105.</Description>
-    <Version>1.0.5</Version>
+    <Product>NASCAR Heat 5 AI Skill Utility</Product>
+    <AssemblyTitle>NASCAR Heat 5 AI Skill Utility</AssemblyTitle>
+    <Description>Local NASCAR Heat 5 AI skill slider. 100% = stock/vanilla strength, 200% = double.</Description>
+    <Version>1.0.8</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GenerateSupportedRuntime>false</GenerateSupportedRuntime>
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\heat5-logo.png" LogicalName="NH5AiSkillAdjustment.heat5-logo.png" />
+  </ItemGroup>
 </Project>
