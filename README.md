@@ -25,6 +25,8 @@ Close NASCAR Heat 5 before APPLY or RESTORE.
 
 Close NASCAR Heat 5 before making changes.
 
+Settings is Basic or Advanced. Basic is the skill multiplier. Advanced picks a track and edits that track's draft, bump, speed, passing, racing line, and pit values. A value marked shared applies to every track on that setup.
+
 Use the slider to adjust global AI strength.
 100% = stock/vanilla strength.
 200% = double the stock AI strength.
