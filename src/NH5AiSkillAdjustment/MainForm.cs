@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
@@ -21,6 +22,10 @@ namespace NH5AiSkillAdjustment
         private readonly Image? _logo;
         private string? _managedDir;
         private int _ceiling = AiSkillPatcher.MinCeiling;
+        private readonly ComboBox _mode;
+        private readonly Label _settings;
+        private readonly AdvancedAiPanel _advanced;
+        private readonly List<Control> _basic = new List<Control>();
 
         public MainForm()
         {
@@ -29,7 +34,7 @@ namespace NH5AiSkillAdjustment
             MaximizeBox = false;
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(520, 760);
+            ClientSize = new Size(520, 800);
             BackColor = Theme.Asphalt;
             ForeColor = Theme.White;
             DoubleBuffered = true;
@@ -40,9 +45,36 @@ namespace NH5AiSkillAdjustment
 
             Paint += (_, e) => DrawHeader(e.Graphics);
 
+            _settings = new Label
+            {
+                Text = "Settings",
+                ForeColor = Theme.Yellow,
+                BackColor = Theme.Asphalt,
+                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+                Location = new Point(20, HeaderHeight + 12),
+                Size = new Size(78, 22)
+            };
+            Controls.Add(_settings);
+            _mode = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Location = new Point(102, HeaderHeight + 8),
+                Size = new Size(140, 24),
+                BackColor = Theme.Track,
+                ForeColor = Theme.White,
+                FlatStyle = FlatStyle.Flat
+            };
+            _mode.Items.Add("Basic");
+            _mode.Items.Add("Advanced");
+            _mode.SelectedIndex = 0;
+            _mode.SelectedIndexChanged += (_, __) => ShowMode();
+            Controls.Add(_mode);
+            _advanced = new AdvancedAiPanel { Visible = false };
+            Controls.Add(_advanced);
+
             var instructionPanel = new Panel
             {
-                Location = new Point(20, HeaderHeight + 18),
+                Location = new Point(20, HeaderHeight + 58),
                 Size = new Size(480, 210),
                 BackColor = Theme.Panel,
                 Padding = new Padding(12, 10, 12, 10)
@@ -71,7 +103,7 @@ namespace NH5AiSkillAdjustment
             _value = new Label
             {
                 AutoSize = false,
-                Location = new Point(20, 350),
+                Location = new Point(20, 390),
                 Size = new Size(480, 48),
                 Font = new Font("Impact", 36, FontStyle.Regular, GraphicsUnit.Pixel),
                 ForeColor = Theme.Yellow,
@@ -83,7 +115,7 @@ namespace NH5AiSkillAdjustment
 
             _slider = new SkillSlider
             {
-                Location = new Point(28, 402),
+                Location = new Point(28, 442),
                 Size = new Size(464, 52),
                 BackColor = Theme.Asphalt,
                 Minimum = AiSkillPatcher.MinStrength,
@@ -96,7 +128,7 @@ namespace NH5AiSkillAdjustment
             Controls.Add(new Label
             {
                 Text = "60%",
-                Location = new Point(28, 458),
+                Location = new Point(28, 498),
                 Size = new Size(40, 18),
                 ForeColor = Theme.Mute,
                 BackColor = Theme.Asphalt
@@ -104,7 +136,7 @@ namespace NH5AiSkillAdjustment
             Controls.Add(new Label
             {
                 Text = "200%",
-                Location = new Point(452, 458),
+                Location = new Point(452, 498),
                 Size = new Size(40, 18),
                 ForeColor = Theme.Mute,
                 BackColor = Theme.Asphalt,
@@ -114,7 +146,7 @@ namespace NH5AiSkillAdjustment
             Controls.Add(new Label
             {
                 Text = "In-Game Setting",
-                Location = new Point(28, 486),
+                Location = new Point(28, 526),
                 Size = new Size(240, 24),
                 Font = new Font("Segoe UI", 11f, FontStyle.Bold),
                 ForeColor = Theme.Yellow,
@@ -122,7 +154,7 @@ namespace NH5AiSkillAdjustment
             });
             _ratingValue = new Label
             {
-                Location = new Point(300, 486),
+                Location = new Point(300, 526),
                 Size = new Size(192, 24),
                 Font = new Font("Segoe UI", 11f, FontStyle.Bold),
                 ForeColor = Theme.Yellow,
@@ -133,7 +165,7 @@ namespace NH5AiSkillAdjustment
             Controls.Add(_ratingValue);
             _rating = new SkillSlider
             {
-                Location = new Point(28, 514),
+                Location = new Point(28, 554),
                 Size = new Size(464, 40),
                 BackColor = Theme.Asphalt,
                 Minimum = AiSkillPatcher.VanillaMin,
@@ -145,7 +177,7 @@ namespace NH5AiSkillAdjustment
             Controls.Add(new Label
             {
                 Text = "85",
-                Location = new Point(28, 556),
+                Location = new Point(28, 596),
                 Size = new Size(40, 18),
                 ForeColor = Theme.Mute,
                 BackColor = Theme.Asphalt
@@ -153,16 +185,16 @@ namespace NH5AiSkillAdjustment
             Controls.Add(new Label
             {
                 Text = "105",
-                Location = new Point(452, 556),
+                Location = new Point(452, 596),
                 Size = new Size(40, 18),
                 ForeColor = Theme.Mute,
                 BackColor = Theme.Asphalt,
                 TextAlign = ContentAlignment.TopRight
             });
 
-            var apply = MakeButton("APPLY", Theme.Red, Theme.White, new Point(28, 584), new Size(220, 42), 0);
+            var apply = MakeButton("APPLY", Theme.Red, Theme.White, new Point(28, 624), new Size(220, 42), 0);
             apply.Click += (_, __) => DoApply();
-            var restore = MakeButton("RESTORE", Color.FromArgb(24, 24, 26), Theme.Yellow, new Point(272, 584), new Size(220, 42), 2);
+            var restore = MakeButton("RESTORE", Color.FromArgb(24, 24, 26), Theme.Yellow, new Point(272, 624), new Size(220, 42), 2);
             restore.FlatAppearance.BorderColor = Theme.Yellow;
             restore.Click += (_, __) => DoRestore();
             Controls.Add(apply);
@@ -171,7 +203,7 @@ namespace NH5AiSkillAdjustment
             var locate = new LinkLabel
             {
                 Text = "Locate game…",
-                Location = new Point(28, 640),
+                Location = new Point(28, 680),
                 AutoSize = true,
                 LinkColor = Theme.Yellow,
                 ActiveLinkColor = Theme.White,
@@ -183,7 +215,7 @@ namespace NH5AiSkillAdjustment
 
             _path = new Label
             {
-                Location = new Point(150, 640),
+                Location = new Point(150, 680),
                 Size = new Size(342, 20),
                 ForeColor = Theme.Mute,
                 BackColor = Theme.Asphalt,
@@ -193,14 +225,74 @@ namespace NH5AiSkillAdjustment
 
             _status = new Label
             {
-                Location = new Point(28, 668),
+                Location = new Point(28, 708),
                 Size = new Size(464, 56),
                 ForeColor = Theme.Mute,
                 BackColor = Theme.Asphalt
             };
             Controls.Add(_status);
+            foreach (Control child in Controls)
+            {
+                if (child != _mode && child != _settings && child != _advanced)
+                {
+                    _basic.Add(child);
+                }
+            }
+
+            Resize += (_, __) =>
+            {
+                if (_mode.SelectedIndex == 1)
+                {
+                    PlaceAdvanced();
+                }
+            };
 
             LoadGame(GameLocator.FindManagedDir());
+        }
+
+        private void ShowMode()
+        {
+            var advanced = _mode.SelectedIndex == 1;
+            foreach (var child in _basic)
+            {
+                child.Visible = !advanced;
+            }
+
+            _advanced.Visible = advanced;
+            if (advanced)
+            {
+                FormBorderStyle = FormBorderStyle.Sizable;
+                MaximizeBox = true;
+                MinimumSize = new Size(640, 520);
+                if (ClientSize.Width < 980)
+                {
+                    ClientSize = new Size(980, Math.Max(800, ClientSize.Height));
+                }
+
+                var dll = string.IsNullOrWhiteSpace(_managedDir) ? null : System.IO.Path.Combine(_managedDir, "Assembly-CSharp.dll");
+                _advanced.LoadFrom(dll);
+                PlaceAdvanced();
+            }
+            else
+            {
+                if (WindowState != FormWindowState.Normal)
+                {
+                    WindowState = FormWindowState.Normal;
+                }
+
+                FormBorderStyle = FormBorderStyle.FixedSingle;
+                MaximizeBox = false;
+                MinimumSize = Size.Empty;
+                ClientSize = new Size(520, 800);
+            }
+
+            Invalidate();
+        }
+
+        private void PlaceAdvanced()
+        {
+            var top = HeaderHeight + 44;
+            _advanced.SetBounds(12, top, Math.Max(200, ClientSize.Width - 24), Math.Max(120, ClientSize.Height - top - 12));
         }
 
         private void DrawHeader(Graphics g)
