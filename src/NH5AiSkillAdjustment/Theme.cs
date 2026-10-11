@@ -14,6 +14,7 @@ namespace NH5AiSkillAdjustment
         public static readonly Color White = Color.FromArgb(245, 245, 245);
         public static readonly Color Mute = Color.FromArgb(168, 168, 176);
         public static readonly Color Track = Color.FromArgb(48, 48, 52);
+        public static readonly Color Conflict = Color.FromArgb(255, 150, 120);
 
         public static void FillCheckered(Graphics g, Rectangle bounds, int square)
         {
