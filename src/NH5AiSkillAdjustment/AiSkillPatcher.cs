@@ -13,6 +13,8 @@ namespace NH5AiSkillAdjustment
         public byte[] Original = Array.Empty<byte>();
         public int? Current;
         public float Extra = 1f;
+        public int Ceiling = 100;
+        public int NativeRating = 105;
     }
 
     internal sealed class AiSkillPatcher
@@ -95,7 +97,10 @@ namespace NH5AiSkillAdjustment
             return Resolve(bytes);
         }
 
-        public int Apply(int value)
+        public const int MinCeiling = 100;
+        public const int MaxCeiling = 200;
+
+        public int Apply(int value, int ceiling, int nativeRating)
         {
             if (IsLiveInstall() && GameLocator.HeatIsRunning())
             {
@@ -105,6 +110,16 @@ namespace NH5AiSkillAdjustment
             if (value < MinStrength || value > MaxStrength)
             {
                 throw new InvalidOperationException($"Strength must be {MinStrength}-{MaxStrength}.");
+            }
+
+            if (ceiling < MinCeiling || ceiling > MaxCeiling)
+            {
+                throw new InvalidOperationException($"Skill cap must be {MinCeiling}-{MaxCeiling}.");
+            }
+
+            if (nativeRating < VanillaMin || nativeRating > VanillaMax)
+            {
+                throw new InvalidOperationException($"In-game AI difficulty must be {VanillaMin}-{VanillaMax}.");
             }
 
             if (!File.Exists(_dllPath))
@@ -118,9 +133,9 @@ namespace NH5AiSkillAdjustment
 
             var sites = LocateSites(bytes);
             var extra = ExtraFor(value);
-            ApplyTable(bytes, sites, extra);
-            // MP has no AI difficulty control (AUTO ~97). Force native Custom 105.
-            Array.Copy(NewForcedRatingBytes(VanillaMax), 0, bytes, sites.RatingOffset, 15);
+            var cap = StockMaxAdjusted * ceiling / PercentBase;
+            ApplyTable(bytes, sites, extra, cap);
+            Array.Copy(NewForcedRatingBytes(nativeRating), 0, bytes, sites.RatingOffset, 15);
 
             WriteDll(bytes, alreadyBackedUp: true);
             SaveState(sites.RatingOffset, ToHex(sites.RatingOriginal), value, extra);
@@ -156,7 +171,7 @@ namespace NH5AiSkillAdjustment
             var target = Resolve(bytes);
             RestoreRatingToStock(bytes);
             var sites = LocateSites(bytes);
-            ApplyTable(bytes, sites, 1f);
+            ApplyTable(bytes, sites, 1f, StockMaxAdjusted);
             RestoreRatingAt(bytes, sites.RatingOffset, sites.RatingOriginal);
             WriteDll(bytes, alreadyBackedUp: true);
             if (File.Exists(_statePath))
@@ -183,6 +198,19 @@ namespace NH5AiSkillAdjustment
 
             var extra = ReadExtra(bytes, sites);
             var rating = GetForcedRatingAt(bytes, sites.RatingOffset);
+            var maxAdj = BitConverter.ToSingle(bytes, sites.MaxAdjFloatOffset);
+            var ceiling = (int)Math.Round(maxAdj / StockMaxAdjusted * PercentBase);
+            if (ceiling < MinCeiling)
+            {
+                ceiling = MinCeiling;
+            }
+
+            if (ceiling > MaxCeiling)
+            {
+                ceiling = MaxCeiling;
+            }
+
+            var native = rating ?? VanillaMax;
             var tableOn = Math.Abs(extra - 1f) > 0.0005f || bytes[sites.EarlyRetOffset] == 0x00;
             var state = ReadState();
 
@@ -193,7 +221,9 @@ namespace NH5AiSkillAdjustment
                     Kind = "stock",
                     Offset = sites.RatingOffset,
                     Original = sites.RatingOriginal,
-                    Extra = 1f
+                    Extra = 1f,
+                    Ceiling = ceiling,
+                    NativeRating = native
                 };
             }
 
@@ -225,7 +255,9 @@ namespace NH5AiSkillAdjustment
                 Offset = sites.RatingOffset,
                 Original = sites.RatingOriginal,
                 Current = current,
-                Extra = extra
+                Extra = extra,
+                Ceiling = ceiling,
+                NativeRating = native
             };
         }
 
@@ -410,23 +442,12 @@ namespace NH5AiSkillAdjustment
             return BitConverter.ToSingle(bytes, sites.ExtraFloatOffset);
         }
 
-        private static void ApplyTable(byte[] bytes, Sites sites, float extra)
+        private static void ApplyTable(byte[] bytes, Sites sites, float extra, float maxAdjusted)
         {
-            if (Math.Abs(extra - 1f) < 0.0001f)
-            {
-                bytes[sites.EarlyRetOffset] = 0x2A;
-                var one = BitConverter.GetBytes(1f);
-                Array.Copy(one, 0, bytes, sites.ExtraFloatOffset, 4);
-                var max = BitConverter.GetBytes(StockMaxAdjusted);
-                Array.Copy(max, 0, bytes, sites.MaxAdjFloatOffset, 4);
-                return;
-            }
-
-            bytes[sites.EarlyRetOffset] = 0x00;
-            var extraBytes = BitConverter.GetBytes(extra);
-            Array.Copy(extraBytes, 0, bytes, sites.ExtraFloatOffset, 4);
-            var raised = BitConverter.GetBytes(Math.Max(StockMaxAdjusted, StockMaxAdjusted * extra));
-            Array.Copy(raised, 0, bytes, sites.MaxAdjFloatOffset, 4);
+            var stock = Math.Abs(extra - 1f) < 0.0001f && Math.Abs(maxAdjusted - StockMaxAdjusted) < 0.0001f;
+            bytes[sites.EarlyRetOffset] = stock ? (byte)0x2A : (byte)0x00;
+            Array.Copy(BitConverter.GetBytes(stock ? 1f : extra), 0, bytes, sites.ExtraFloatOffset, 4);
+            Array.Copy(BitConverter.GetBytes(stock ? StockMaxAdjusted : maxAdjusted), 0, bytes, sites.MaxAdjFloatOffset, 4);
         }
 
         private static void RestoreRatingToStock(byte[] bytes)
