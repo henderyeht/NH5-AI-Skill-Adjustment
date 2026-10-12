@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.Drawing.Text;
 using System.IO;
 using System.Reflection;
@@ -20,6 +21,7 @@ namespace NH5AiSkillAdjustment
         private readonly Label _path;
         private readonly Icon _icon;
         private readonly Image? _logo;
+        private readonly Image? _banner;
         private string? _managedDir;
         private int _ceiling = AiSkillPatcher.MinCeiling;
         private readonly ComboBox _mode;
@@ -34,13 +36,14 @@ namespace NH5AiSkillAdjustment
             MaximizeBox = false;
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(520, 800);
+            ClientSize = new Size(520, 820);
             BackColor = Theme.Asphalt;
             ForeColor = Theme.White;
             DoubleBuffered = true;
             Font = new Font("Segoe UI", 9.5f);
-            _logo = LoadLogo();
-            _icon = MakeIcon();
+            _logo = LoadImage("NH5AiSkillAdjustment.heat5-logo.png");
+            _banner = LoadImage("NH5AiSkillAdjustment.banner-header.jpg");
+            _icon = LoadIcon();
             Icon = _icon;
 
             Paint += (_, e) => DrawHeader(e.Graphics);
@@ -51,14 +54,14 @@ namespace NH5AiSkillAdjustment
                 ForeColor = Theme.Yellow,
                 BackColor = Theme.Asphalt,
                 Font = new Font("Segoe UI", 10f, FontStyle.Bold),
-                Location = new Point(20, HeaderHeight + 12),
+                Location = new Point(20, HeaderHeight + 22),
                 Size = new Size(78, 22)
             };
             Controls.Add(_settings);
             _mode = new ComboBox
             {
                 DropDownStyle = ComboBoxStyle.DropDownList,
-                Location = new Point(102, HeaderHeight + 8),
+                Location = new Point(102, HeaderHeight + 18),
                 Size = new Size(140, 24),
                 BackColor = Theme.Track,
                 ForeColor = Theme.White,
@@ -166,7 +169,7 @@ namespace NH5AiSkillAdjustment
             _rating = new SkillSlider
             {
                 Location = new Point(28, 554),
-                Size = new Size(464, 40),
+                Size = new Size(464, 52),
                 BackColor = Theme.Asphalt,
                 Minimum = AiSkillPatcher.VanillaMin,
                 Maximum = AiSkillPatcher.VanillaMax,
@@ -177,7 +180,7 @@ namespace NH5AiSkillAdjustment
             Controls.Add(new Label
             {
                 Text = "85",
-                Location = new Point(28, 596),
+                Location = new Point(28, 610),
                 Size = new Size(40, 18),
                 ForeColor = Theme.Mute,
                 BackColor = Theme.Asphalt
@@ -185,16 +188,16 @@ namespace NH5AiSkillAdjustment
             Controls.Add(new Label
             {
                 Text = "105",
-                Location = new Point(452, 596),
+                Location = new Point(452, 610),
                 Size = new Size(40, 18),
                 ForeColor = Theme.Mute,
                 BackColor = Theme.Asphalt,
                 TextAlign = ContentAlignment.TopRight
             });
 
-            var apply = MakeButton("APPLY", Theme.Red, Theme.White, new Point(28, 624), new Size(220, 42), 0);
+            var apply = MakeButton("APPLY", Theme.Red, Theme.White, new Point(28, 638), new Size(220, 42), 0);
             apply.Click += (_, __) => DoApply();
-            var restore = MakeButton("RESTORE", Color.FromArgb(24, 24, 26), Theme.Yellow, new Point(272, 624), new Size(220, 42), 2);
+            var restore = MakeButton("RESTORE", Color.FromArgb(24, 24, 26), Theme.Yellow, new Point(272, 638), new Size(220, 42), 2);
             restore.FlatAppearance.BorderColor = Theme.Yellow;
             restore.Click += (_, __) => DoRestore();
             Controls.Add(apply);
@@ -203,7 +206,7 @@ namespace NH5AiSkillAdjustment
             var locate = new LinkLabel
             {
                 Text = "Locate game…",
-                Location = new Point(28, 680),
+                Location = new Point(28, 694),
                 AutoSize = true,
                 LinkColor = Theme.Yellow,
                 ActiveLinkColor = Theme.White,
@@ -215,7 +218,7 @@ namespace NH5AiSkillAdjustment
 
             _path = new Label
             {
-                Location = new Point(150, 680),
+                Location = new Point(150, 694),
                 Size = new Size(342, 20),
                 ForeColor = Theme.Mute,
                 BackColor = Theme.Asphalt,
@@ -225,7 +228,7 @@ namespace NH5AiSkillAdjustment
 
             _status = new Label
             {
-                Location = new Point(28, 708),
+                Location = new Point(28, 722),
                 Size = new Size(464, 56),
                 ForeColor = Theme.Mute,
                 BackColor = Theme.Asphalt
@@ -266,7 +269,7 @@ namespace NH5AiSkillAdjustment
                 MinimumSize = new Size(640, 520);
                 if (ClientSize.Width < 980)
                 {
-                    ClientSize = new Size(980, Math.Max(800, ClientSize.Height));
+                    ClientSize = new Size(980, Math.Max(820, ClientSize.Height));
                 }
 
                 var dll = string.IsNullOrWhiteSpace(_managedDir) ? null : System.IO.Path.Combine(_managedDir, "Assembly-CSharp.dll");
@@ -283,7 +286,7 @@ namespace NH5AiSkillAdjustment
                 FormBorderStyle = FormBorderStyle.FixedSingle;
                 MaximizeBox = false;
                 MinimumSize = Size.Empty;
-                ClientSize = new Size(520, 800);
+                ClientSize = new Size(520, 820);
             }
 
             Invalidate();
@@ -291,43 +294,84 @@ namespace NH5AiSkillAdjustment
 
         private void PlaceAdvanced()
         {
-            var top = HeaderHeight + 44;
+            var top = HeaderHeight + 56;
             _advanced.SetBounds(12, top, Math.Max(200, ClientSize.Width - 24), Math.Max(120, ClientSize.Height - top - 12));
         }
 
         private void DrawHeader(Graphics g)
         {
+            var dest = new Rectangle(0, 0, ClientSize.Width, HeaderHeight);
+            g.Clear(Color.Black);
             g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-            Theme.FillCheckered(g, new Rectangle(0, 0, ClientSize.Width, HeaderHeight), 10);
-            using (var shade = new SolidBrush(Color.FromArgb(150, 0, 0, 0)))
+            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            g.SmoothingMode = SmoothingMode.HighQuality;
+            if (_banner != null && _banner.Width > 1 && _banner.Height > 1)
             {
-                g.FillRectangle(shade, 0, 0, ClientSize.Width, HeaderHeight);
+                var scale = dest.Height / (float)_banner.Height;
+                var drawnW = _banner.Width * scale;
+                if (drawnW <= dest.Width + 0.5f)
+                {
+                    var w = Math.Max(1, (int)Math.Round(drawnW));
+                    g.DrawImage(_banner, new Rectangle(dest.Right - w, dest.Y, w, dest.Height));
+                }
+                else
+                {
+                    var srcW = dest.Width / scale;
+                    var srcX = _banner.Width - srcW;
+                    g.DrawImage(_banner, dest, srcX, 0f, srcW, _banner.Height, GraphicsUnit.Pixel);
+                }
             }
 
-            var logoDest = new Rectangle(14, 14, 248, 81);
-            if (_logo != null)
+            var titleX = dest.X + 16f;
+            if (_logo != null && _logo.Width > 0 && _logo.Height > 0)
             {
-                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                g.DrawImage(_logo, logoDest);
+                var lh = dest.Height * 0.62f;
+                var lw = lh * _logo.Width / _logo.Height;
+                var maxW = dest.Width * 0.34f;
+                if (lw > maxW)
+                {
+                    lw = maxW;
+                    lh = lw * _logo.Height / _logo.Width;
+                }
+
+                var ly = dest.Y + (dest.Height - lh) / 2f;
+                using (var attr = new ImageAttributes())
+                {
+                    attr.SetColorKey(Color.FromArgb(0, 0, 0), Color.FromArgb(18, 18, 18));
+                    g.DrawImage(
+                        _logo,
+                        new Rectangle((int)(dest.X + 12), (int)ly, Math.Max(1, (int)lw), Math.Max(1, (int)lh)),
+                        0,
+                        0,
+                        _logo.Width,
+                        _logo.Height,
+                        GraphicsUnit.Pixel,
+                        attr);
+                }
+
+                titleX = dest.X + 20f + lw;
             }
 
-            using (var titleFont = new Font("Segoe UI", 15.5f, FontStyle.Bold))
-            using (var format = new StringFormat())
+            var slotW = Math.Max(48f, dest.Right - titleX - 12f);
+            var size = Math.Max(12f, dest.Height * 0.28f);
+            using (var font = new Font("Segoe UI", size, FontStyle.Bold | FontStyle.Italic, GraphicsUnit.Pixel))
+            using (var format = new StringFormat
             {
-                format.Alignment = StringAlignment.Near;
-                format.LineAlignment = StringAlignment.Center;
-                var titleRect = new RectangleF(270, 14, Math.Max(40, ClientSize.Width - 284), 81);
-                Theme.DrawOutlinedText(g, "AI Skill Utility", titleFont, titleRect, format);
+                Alignment = StringAlignment.Near,
+                LineAlignment = StringAlignment.Center,
+                Trimming = StringTrimming.EllipsisCharacter,
+                FormatFlags = StringFormatFlags.NoWrap
+            })
+            {
+                Theme.DrawOutlinedText(g, "AI Skill Utility", font, new RectangleF(titleX, dest.Y, slotW, dest.Height), format);
             }
-
-            Theme.DrawHeaderStripes(g, HeaderHeight, ClientSize.Width);
         }
 
-        private static Image? LoadLogo()
+        private static Image? LoadImage(string resource)
         {
             var assembly = Assembly.GetExecutingAssembly();
-            using (var stream = assembly.GetManifestResourceStream("NH5AiSkillAdjustment.heat5-logo.png"))
+            using (var stream = assembly.GetManifestResourceStream(resource))
             {
                 if (stream == null)
                 {
@@ -494,30 +538,72 @@ namespace NH5AiSkillAdjustment
             {
                 _icon?.Dispose();
                 _logo?.Dispose();
+                _banner?.Dispose();
             }
 
             base.Dispose(disposing);
         }
 
-        private static Icon MakeIcon()
+        private static Icon LoadIcon()
         {
-            var bmp = new Bitmap(32, 32);
-            using (var g = Graphics.FromImage(bmp))
+            var image = LoadImage("NH5AiSkillAdjustment.icon-ai.jpg");
+            if (image == null)
             {
-                g.SmoothingMode = SmoothingMode.None;
-                Theme.FillCheckered(g, new Rectangle(0, 0, 32, 32), 8);
-                using (var blue = new SolidBrush(Theme.Blue))
+                return (Icon)SystemIcons.Application.Clone();
+            }
+
+            var sizes = new[] { 16, 32, 48, 256 };
+            var pngs = new byte[sizes.Length][];
+            for (var i = 0; i < sizes.Length; i++)
+            {
+                var size = sizes[i];
+                using (var bmp = new Bitmap(size, size, PixelFormat.Format32bppArgb))
+                using (var g = Graphics.FromImage(bmp))
+                using (var ms = new MemoryStream())
                 {
-                    g.FillRectangle(blue, 0, 0, 4, 32);
-                }
-                using (var yellow = new Pen(Theme.Yellow, 3))
-                {
-                    g.DrawRectangle(yellow, 1, 1, 29, 29);
+                    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                    g.SmoothingMode = SmoothingMode.HighQuality;
+                    g.Clear(Color.Transparent);
+                    g.DrawImage(image, new Rectangle(0, 0, size, size));
+                    bmp.Save(ms, ImageFormat.Png);
+                    pngs[i] = ms.ToArray();
                 }
             }
 
-            var icon = Icon.FromHandle(bmp.GetHicon());
-            return icon;
+            image.Dispose();
+            using (var ico = new MemoryStream())
+            using (var writer = new BinaryWriter(ico))
+            {
+                writer.Write((ushort)0);
+                writer.Write((ushort)1);
+                writer.Write((ushort)sizes.Length);
+                var offset = 6 + (16 * sizes.Length);
+                for (var i = 0; i < sizes.Length; i++)
+                {
+                    var size = sizes[i];
+                    writer.Write((byte)(size >= 256 ? 0 : size));
+                    writer.Write((byte)(size >= 256 ? 0 : size));
+                    writer.Write((byte)0);
+                    writer.Write((byte)0);
+                    writer.Write((ushort)1);
+                    writer.Write((ushort)32);
+                    writer.Write(pngs[i].Length);
+                    writer.Write(offset);
+                    offset += pngs[i].Length;
+                }
+
+                for (var i = 0; i < pngs.Length; i++)
+                {
+                    writer.Write(pngs[i]);
+                }
+
+                writer.Flush();
+                using (var loaded = new Icon(new MemoryStream(ico.ToArray())))
+                {
+                    return (Icon)loaded.Clone();
+                }
+            }
         }
     }
 }
