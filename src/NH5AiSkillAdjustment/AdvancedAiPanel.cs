@@ -30,14 +30,11 @@ namespace NH5AiSkillAdjustment
                 Location = new Point(0, 4),
                 Size = new Size(52, 22)
             });
-            _track = new ComboBox
+            _track = new WheelCombo
             {
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 Location = new Point(56, 0),
-                Size = new Size(260, 24),
-                BackColor = Theme.Track,
-                ForeColor = Theme.White,
-                FlatStyle = FlatStyle.Flat
+                Size = new Size(260, 24)
             };
             _track.SelectedIndexChanged += (_, __) => ShowTrack();
             Controls.Add(_track);
@@ -49,6 +46,7 @@ namespace NH5AiSkillAdjustment
                 BackColor = Theme.Red,
                 ForeColor = Theme.White,
                 FlatStyle = FlatStyle.Flat,
+                UseVisualStyleBackColor = false,
                 Font = new Font("Impact", 16, FontStyle.Regular, GraphicsUnit.Pixel),
                 Cursor = Cursors.Hand
             };
@@ -269,9 +267,7 @@ namespace NH5AiSkillAdjustment
                                 DropDownStyle = ComboBoxStyle.DropDownList,
                                 Location = new Point(x + 16 + labelW, y),
                                 Size = new Size(boxW, 22),
-                                BackColor = Theme.Track,
-                                ForeColor = Theme.White,
-                                FlatStyle = FlatStyle.Flat
+                                ForeColor = Theme.White
                             };
                             pick.Items.Add("On");
                             pick.Items.Add("Off");
@@ -285,9 +281,9 @@ namespace NH5AiSkillAdjustment
                                 Text = field.Value.ToString("0.####", CultureInfo.InvariantCulture),
                                 Location = new Point(x + 16 + labelW, y),
                                 Size = new Size(boxW, 22),
-                                BackColor = Theme.Track,
+                                BackColor = Theme.Asphalt,
                                 ForeColor = Theme.White,
-                                BorderStyle = BorderStyle.FixedSingle
+                                BorderStyle = BorderStyle.None
                             };
                         }
 
