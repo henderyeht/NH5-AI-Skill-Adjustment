@@ -58,14 +58,11 @@ namespace NH5AiSkillAdjustment
                 Size = new Size(78, 22)
             };
             Controls.Add(_settings);
-            _mode = new ComboBox
+            _mode = new WheelCombo
             {
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 Location = new Point(102, HeaderHeight + 18),
-                Size = new Size(140, 24),
-                BackColor = Theme.Track,
-                ForeColor = Theme.White,
-                FlatStyle = FlatStyle.Flat
+                Size = new Size(140, 24)
             };
             _mode.Items.Add("Basic");
             _mode.Items.Add("Advanced");
@@ -79,7 +76,7 @@ namespace NH5AiSkillAdjustment
             {
                 Location = new Point(20, HeaderHeight + 58),
                 Size = new Size(480, 210),
-                BackColor = Theme.Panel,
+                BackColor = Theme.Asphalt,
                 Padding = new Padding(12, 10, 12, 10)
             };
             instructionPanel.Paint += (_, e) => Theme.PaintLeftAccent(e.Graphics, instructionPanel.Height);
@@ -88,7 +85,7 @@ namespace NH5AiSkillAdjustment
                 Dock = DockStyle.Fill,
                 AutoSize = false,
                 ForeColor = Theme.White,
-                BackColor = Theme.Panel,
+                BackColor = Theme.Asphalt,
                 Padding = new Padding(4, 0, 0, 0),
                 Text = "Close NASCAR Heat 5 before making changes.\r\n"
                      + "\r\n"
@@ -197,7 +194,7 @@ namespace NH5AiSkillAdjustment
 
             var apply = MakeButton("APPLY", Theme.Red, Theme.White, new Point(28, 638), new Size(220, 42), 0);
             apply.Click += (_, __) => DoApply();
-            var restore = MakeButton("RESTORE", Color.FromArgb(24, 24, 26), Theme.Yellow, new Point(272, 638), new Size(220, 42), 2);
+            var restore = MakeButton("RESTORE", Theme.Asphalt, Theme.Yellow, new Point(272, 638), new Size(220, 42), 2);
             restore.FlatAppearance.BorderColor = Theme.Yellow;
             restore.Click += (_, __) => DoRestore();
             Controls.Add(apply);
@@ -400,10 +397,14 @@ namespace NH5AiSkillAdjustment
                 BackColor = back,
                 ForeColor = fore,
                 FlatStyle = FlatStyle.Flat,
+                UseVisualStyleBackColor = false,
                 Font = new Font("Impact", 16, FontStyle.Regular, GraphicsUnit.Pixel),
                 Cursor = Cursors.Hand
             };
             button.FlatAppearance.BorderSize = border;
+            button.FlatAppearance.BorderColor = border > 0 ? Theme.Yellow : back;
+            button.FlatAppearance.MouseOverBackColor = back;
+            button.FlatAppearance.MouseDownBackColor = back;
             return button;
         }
 
