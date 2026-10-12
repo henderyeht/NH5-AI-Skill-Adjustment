@@ -298,7 +298,11 @@ namespace NH5AiSkillAdjustment
         private void DrawHeader(Graphics g)
         {
             var dest = new Rectangle(0, 0, ClientSize.Width, HeaderHeight);
-            g.Clear(Color.Black);
+            g.Clear(Theme.Asphalt);
+            using (var header = new SolidBrush(Color.Black))
+            {
+                g.FillRectangle(header, dest);
+            }
             g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
             g.InterpolationMode = InterpolationMode.HighQualityBicubic;
             g.PixelOffsetMode = PixelOffsetMode.HighQuality;
