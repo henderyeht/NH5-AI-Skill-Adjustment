@@ -59,7 +59,9 @@ namespace NH5AiSkillAdjustment
             }
 
             var thumbX = track.X + fillWidth;
-            var thumb = new Rectangle(thumbX - 20, Height / 2 - 23, 40, 46);
+            var thumbH = Math.Min(46, Math.Max(16, Height - 6));
+            var thumbW = Math.Min(40, thumbH);
+            var thumb = new Rectangle(thumbX - thumbW / 2, (Height - thumbH) / 2, thumbW, thumbH);
             Theme.DrawCheckeredThumb(g, thumb, Theme.Yellow);
         }
 
