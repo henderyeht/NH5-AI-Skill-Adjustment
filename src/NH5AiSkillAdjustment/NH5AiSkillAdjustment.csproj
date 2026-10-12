@@ -13,9 +13,9 @@
     <Authors>NH5 Multiplayer Revival</Authors>
     <Copyright>Copyright (c) 2026</Copyright>
     <Description>Local NASCAR Heat 5 AI skill slider. 100% = stock/vanilla strength, 200% = double.</Description>
-    <Version>1.0.11</Version>
-    <FileVersion>1.0.11.0</FileVersion>
-    <InformationalVersion>1.0.11</InformationalVersion>
+    <Version>1.0.12</Version>
+    <FileVersion>1.0.12.0</FileVersion>
+    <InformationalVersion>1.0.12</InformationalVersion>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GenerateSupportedRuntime>false</GenerateSupportedRuntime>
@@ -24,6 +24,8 @@
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="Assets\heat5-logo.png" LogicalName="NH5AiSkillAdjustment.heat5-logo.png" />
+    <EmbeddedResource Include="Assets\banner-header.jpg" LogicalName="NH5AiSkillAdjustment.banner-header.jpg" />
+    <EmbeddedResource Include="Assets\icon-ai.jpg" LogicalName="NH5AiSkillAdjustment.icon-ai.jpg" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Mono.Cecil" Version="0.11.5" />
