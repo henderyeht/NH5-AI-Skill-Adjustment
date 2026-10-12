@@ -46,7 +46,7 @@ namespace NH5AiSkillAdjustment
             g.Clear(BackColor);
 
             var track = new Rectangle(22, Height / 2 - 6, Width - 44, 12);
-            using (var trackBrush = new SolidBrush(Theme.Track))
+            using (var trackBrush = new SolidBrush(BackColor))
             {
                 g.FillRectangle(trackBrush, track);
             }
