@@ -18,6 +18,14 @@ namespace NH5AiSkillAdjustment
         private bool _laying;
         private string? _dll;
 
+        public bool Pending { get; private set; }
+
+        public bool TryApply()
+        {
+            ApplyTrack();
+            return !Pending;
+        }
+
         public AdvancedAiPanel()
         {
             BackColor = Theme.Asphalt;
@@ -51,7 +59,13 @@ namespace NH5AiSkillAdjustment
                 Cursor = Cursors.Hand
             };
             apply.FlatAppearance.BorderSize = 0;
-            apply.Click += (_, __) => ApplyTrack();
+            apply.Click += (_, __) =>
+            {
+                if (MessageBox.Show(FindForm(), "Are you sure you want to Apply?", "NASCAR Heat 5 AI Skill Utility", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                {
+                    ApplyTrack();
+                }
+            };
             Controls.Add(apply);
             _status = new Label
             {
@@ -123,6 +137,7 @@ namespace NH5AiSkillAdjustment
             }
 
             _laying = true;
+            Pending = false;
             try
             {
                 ShowTrackCore();
@@ -130,6 +145,7 @@ namespace NH5AiSkillAdjustment
             finally
             {
                 _laying = false;
+                Pending = false;
             }
         }
 
@@ -287,8 +303,14 @@ namespace NH5AiSkillAdjustment
                             };
                         }
 
-                        _body.Controls.Add(editor);
-                        _edits.Add((editor, field));
+            editor.TextChanged += (_, __) => Pending = true;
+            if (editor is ComboBox trackPick)
+            {
+                trackPick.SelectedIndexChanged += (_, __) => Pending = true;
+            }
+
+            _body.Controls.Add(editor);
+            _edits.Add((editor, field));
                         y += rowH;
                     }
                 }
@@ -355,6 +377,7 @@ namespace NH5AiSkillAdjustment
             {
                 _status.ForeColor = Theme.Mute;
                 _status.Text = "No track values changed.";
+                Pending = false;
                 return;
             }
 
