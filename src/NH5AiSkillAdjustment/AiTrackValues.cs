@@ -347,7 +347,7 @@ namespace NH5AiSkillAdjustment
                 throw new InvalidOperationException("NASCAR Heat 5 is running. Close the game, then try again.");
             }
 
-            var bak = dllPath + ".nh5ai-stock.bak";
+            var bak = GameBackup.Keep(dllPath, ".nh5ai-stock.bak");
             if (!File.Exists(bak))
             {
                 File.Copy(dllPath, bak);
