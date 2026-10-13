@@ -27,6 +27,13 @@ namespace NH5AiSkillAdjustment
         private readonly ComboBox _mode;
         private readonly Label _settings;
         private readonly AdvancedAiPanel _advanced;
+        private bool _loading;
+        private bool _dirty;
+
+        private bool Ask(string text)
+        {
+            return MessageBox.Show(this, text, Text, MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+        }
         private readonly List<Control> _basic = new List<Control>();
 
         public MainForm()
@@ -122,7 +129,14 @@ namespace NH5AiSkillAdjustment
                 Maximum = AiSkillPatcher.MaxStrength,
                 Value = AiSkillPatcher.VanillaCustom
             };
-            _slider.ValueChanged += (_, __) => { _value.Text = _slider.Value.ToString() + "%"; };
+            _slider.ValueChanged += (_, __) =>
+            {
+                _value.Text = _slider.Value.ToString() + "%";
+                if (!_loading)
+                {
+                    _dirty = true;
+                }
+            };
             Controls.Add(_slider);
 
             Controls.Add(new Label
@@ -172,7 +186,14 @@ namespace NH5AiSkillAdjustment
                 Maximum = AiSkillPatcher.VanillaMax,
                 Value = AiSkillPatcher.VanillaMax
             };
-            _rating.ValueChanged += (_, __) => { _ratingValue.Text = _rating.Value.ToString(); };
+            _rating.ValueChanged += (_, __) =>
+            {
+                _ratingValue.Text = _rating.Value.ToString();
+                if (!_loading)
+                {
+                    _dirty = true;
+                }
+            };
             Controls.Add(_rating);
             Controls.Add(new Label
             {
@@ -193,10 +214,44 @@ namespace NH5AiSkillAdjustment
             });
 
             var apply = MakeButton("APPLY", Theme.Red, Theme.White, new Point(28, 638), new Size(220, 42), 0);
-            apply.Click += (_, __) => DoApply();
+            apply.Click += (_, __) => { if (Ask("Are you sure you want to Apply?")) DoApply(); };
             var restore = MakeButton("RESTORE", Theme.Asphalt, Theme.Yellow, new Point(272, 638), new Size(220, 42), 2);
             restore.FlatAppearance.BorderColor = Theme.Yellow;
-            restore.Click += (_, __) => DoRestore();
+            restore.Click += (_, __) => { if (Ask("Are you sure you want to Restore?")) DoRestore(); };
+            FormClosing += (_, e) =>
+            {
+                if (!_dirty && !_advanced.Pending)
+                {
+                    return;
+                }
+
+                var answer = MessageBox.Show(this, "Do you want to Apply these Changes?", Text, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+                if (answer == DialogResult.Cancel)
+                {
+                    e.Cancel = true;
+                    return;
+                }
+
+                if (answer == DialogResult.No)
+                {
+                    return;
+                }
+
+                if (_advanced.Pending && !_advanced.TryApply())
+                {
+                    e.Cancel = true;
+                    return;
+                }
+
+                if (_dirty)
+                {
+                    DoApply();
+                    if (_dirty)
+                    {
+                        e.Cancel = true;
+                    }
+                }
+            };
             Controls.Add(apply);
             Controls.Add(restore);
 
@@ -414,12 +469,15 @@ namespace NH5AiSkillAdjustment
 
         private void LoadGame(string? managedDir)
         {
+            _loading = true;
             _managedDir = managedDir;
             if (string.IsNullOrWhiteSpace(managedDir))
             {
                 _path.Text = "Game not found — click Locate game";
                 _status.ForeColor = Theme.Yellow;
                 _status.Text = "Select your NASCAR Heat 5 folder, or NASCARHeat5_Data\\Managed.";
+                _loading = false;
+                _dirty = false;
                 return;
             }
 
@@ -457,6 +515,11 @@ namespace NH5AiSkillAdjustment
                 _status.ForeColor = Theme.Yellow;
                 _status.Text = ex.Message;
             }
+            finally
+            {
+                _loading = false;
+                _dirty = false;
+            }
         }
 
         private void BrowseGame()
@@ -488,6 +551,7 @@ namespace NH5AiSkillAdjustment
                 var patcher = RequirePatcher();
                 var value = patcher.Apply(_slider.Value, _ceiling, _rating.Value);
                 InGameAi.Write(_rating.Value);
+                _dirty = false;
                 _status.ForeColor = Theme.Yellow;
                 _status.Text = AppliedMessage(value, AiSkillPatcher.ExtraFor(value), _rating.Value);
             }
@@ -510,6 +574,7 @@ namespace NH5AiSkillAdjustment
                     _rating.Value = setting;
                 }
 
+                _dirty = false;
                 _status.ForeColor = Theme.Yellow;
                 _status.Text = kind == "already-stock"
                     ? "Already using vanilla AI (no table scale, no forced 105)."
