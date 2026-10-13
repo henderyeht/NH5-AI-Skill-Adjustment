@@ -488,7 +488,7 @@ namespace NH5AiSkillAdjustment
 
         private string StockBackupPath()
         {
-            return _dllPath + ".nh5ai-stock.bak";
+            return GameBackup.Keep(_dllPath, ".nh5ai-stock.bak");
         }
 
         private bool IsLiveInstall()
