@@ -59,3 +59,9 @@ Requires .NET SDK to build. The exe runs on Windows with .NET Framework 4.8 (shi
 src/     C# source (WinForms, no console)
 dist/    NH5AiSkillAdjustment.exe  — the public drop
 ```
+
+## License
+
+Copyright (C) 2026 henderyeht
+
+The original code in this project is free software under the GNU General Public License, version 3. You may share it and change it. Every copy, including a changed or built copy, must keep this copyright notice and the license in the LICENSE file. Third-party libraries keep their own licenses.
