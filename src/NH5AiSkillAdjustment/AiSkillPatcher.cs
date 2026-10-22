@@ -142,6 +142,11 @@ namespace NH5AiSkillAdjustment
             return value;
         }
 
+        public void KeepRestoreCopy()
+        {
+            EnsureVanillaBackup();
+        }
+
         public string Restore()
         {
             if (IsLiveInstall() && GameLocator.HeatIsRunning())
