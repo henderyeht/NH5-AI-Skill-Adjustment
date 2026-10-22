@@ -568,17 +568,14 @@ namespace NH5AiSkillAdjustment
             {
                 var patcher = RequirePatcher();
                 var kind = patcher.Restore();
-                _slider.Value = AiSkillPatcher.VanillaCustom;
-                if (InGameAi.TryRead(out var setting))
-                {
-                    _rating.Value = setting;
-                }
-
+                var settings = InGameAi.RestoreVanilla();
+                LoadGame(_managedDir);
+                _advanced.LoadFrom(System.IO.Path.Combine(_managedDir ?? "", "Assembly-CSharp.dll"));
                 _dirty = false;
                 _status.ForeColor = Theme.Yellow;
-                _status.Text = kind == "already-stock"
-                    ? "Already using vanilla AI (no table scale, no forced 105)."
-                    : "Restored vanilla AI. Online will use Auto again (~97).";
+                _status.Text = kind == "already-stock" && !settings
+                    ? "Already using vanilla AI."
+                    : "Restored vanilla AI.";
             }
             catch (Exception ex)
             {
