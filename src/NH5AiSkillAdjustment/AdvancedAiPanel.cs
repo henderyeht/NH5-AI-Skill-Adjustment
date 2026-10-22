@@ -77,9 +77,7 @@ namespace NH5AiSkillAdjustment
                 Size = new Size(700, 28)
             };
             Controls.Add(_status);
-            _settings = new Panel { Location = new Point(0, 36), Size = new Size(960, 0), BackColor = Theme.Asphalt };
-            Controls.Add(_settings);
-            _body = new Panel { Location = new Point(0, 44), Size = new Size(960, 400), BackColor = Theme.Asphalt, AutoScroll = true };
+            _body = new Panel { Location = new Point(0, 36), Size = new Size(960, 400), BackColor = Theme.Asphalt, AutoScroll = true };
             Controls.Add(_body);
             Resize += (_, __) => ShowTrack();
         }
@@ -155,8 +153,7 @@ namespace NH5AiSkillAdjustment
         private void ShowTrackCore()
         {
             var viewW = Math.Max(360, ClientSize.Width);
-            _settings.Width = viewW;
-            var bodyTop = _settings.Bottom + 8;
+            var bodyTop = 36;
             var viewH = Math.Max(120, ClientSize.Height - bodyTop);
             if (_shownTrack == _track.SelectedIndex && _shownView.Width == viewW && _shownView.Height == viewH && _body.Controls.Count > 0)
             {
@@ -165,6 +162,7 @@ namespace NH5AiSkillAdjustment
 
             _body.Controls.Clear();
             _edits.Clear();
+            _settingEdits.Clear();
             if (_track.SelectedIndex < 0 || _track.SelectedIndex >= _tracks.Count)
             {
                 return;
@@ -186,6 +184,30 @@ namespace NH5AiSkillAdjustment
                 }
 
                 blocks[blocks.Count - 1].fields.Add(field);
+            }
+
+            var settingOf = new Dictionary<AiTrackField, AiSettingValue>();
+            var lead = new List<(string title, List<AiTrackField> fields)>();
+            foreach (var setting in _settingFields)
+            {
+                if (lead.Count == 0 || lead[lead.Count - 1].title != setting.Group)
+                {
+                    lead.Add((setting.Group, new List<AiTrackField>()));
+                }
+
+                var row = new AiTrackField
+                {
+                    Group = setting.Group,
+                    Label = setting.Label,
+                    Value = setting.Value
+                };
+                settingOf[row] = setting;
+                lead[lead.Count - 1].fields.Add(row);
+            }
+
+            if (lead.Count > 0)
+            {
+                blocks.InsertRange(0, lead);
             }
 
             var scrollW = SystemInformation.VerticalScrollBarWidth;
@@ -296,22 +318,43 @@ namespace NH5AiSkillAdjustment
                         }
                         else
                         {
+                            var settingRow = settingOf.ContainsKey(field);
                             editor = new WheelTextBox
                             {
-                                Text = field.Value.ToString("0.####", CultureInfo.InvariantCulture),
+                                Text = settingRow
+                                    ? field.Value.ToString("R", CultureInfo.InvariantCulture)
+                                    : field.Value.ToString("0.####", CultureInfo.InvariantCulture),
                                 Location = new Point(x + 16 + labelW, y),
                                 Size = new Size(boxW, 22)
                             };
                         }
 
-            editor.TextChanged += (_, __) => _trackPending = true;
+            var fromSetting = settingOf.TryGetValue(field, out var settingValue);
+            editor.TextChanged += (_, __) =>
+            {
+                if (fromSetting)
+                {
+                    _settingsDirty = true;
+                }
+                else
+                {
+                    _trackPending = true;
+                }
+            };
             if (editor is ComboBox trackPick)
             {
                 trackPick.SelectedIndexChanged += (_, __) => _trackPending = true;
             }
 
             _body.Controls.Add(editor);
-            _edits.Add((editor, field));
+            if (fromSetting)
+            {
+                _settingEdits.Add(((TextBox)editor, settingValue));
+            }
+            else
+            {
+                _edits.Add((editor, field));
+            }
                         y += rowH;
                     }
                 }
@@ -320,72 +363,28 @@ namespace NH5AiSkillAdjustment
             _body.AutoScrollMinSize = new Size(Math.Max(used * colW, usable), contentH + 12);
             _shownTrack = _track.SelectedIndex;
             _shownView = new Size(viewW, viewH);
+            _settingsDirty = false;
         }
 
-        private readonly Panel _settings;
+        private List<AiSettingValue> _settingFields = new List<AiSettingValue>();
         private readonly List<(TextBox Box, AiSettingValue Field)> _settingEdits = new List<(TextBox, AiSettingValue)>();
 
         private void LoadSettings(string? dll)
         {
-            _settings.Controls.Clear();
-            _settingEdits.Clear();
-            _settings.Height = 0;
+            _settingFields = new List<AiSettingValue>();
             _settingsDirty = false;
             if (string.IsNullOrEmpty(dll))
             {
                 return;
             }
 
-            List<AiSettingValue> fields;
             try
             {
-                fields = AiSettingValues.Read(dll ?? "");
+                _settingFields = AiSettingValues.Read(dll ?? "");
             }
             catch (Exception)
             {
-                return;
             }
-
-            _settings.Controls.Add(new Label
-            {
-                Text = "Setting values",
-                ForeColor = Theme.Yellow,
-                BackColor = Theme.Asphalt,
-                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
-                Location = new Point(8, 2),
-                Size = new Size(240, 20)
-            });
-            const int rowH = 28;
-            const int colW = 460;
-            for (var i = 0; i < fields.Count; i++)
-            {
-                var field = fields[i];
-                var x = 8 + (i % 2) * colW;
-                var y = 26 + (i / 2) * rowH;
-                _settings.Controls.Add(new Label
-                {
-                    Text = field.Group + " / " + field.Label,
-                    ForeColor = Theme.White,
-                    BackColor = Theme.Asphalt,
-                    AutoEllipsis = true,
-                    Location = new Point(x, y + 3),
-                    Size = new Size(330, 20)
-                });
-                var box = new WheelTextBox
-                {
-                    Text = field.Value.ToString("R", CultureInfo.InvariantCulture),
-                    Location = new Point(x + 334, y),
-                    Size = new Size(90, 22)
-                };
-                box.TextChanged += (_, __) => _settingsDirty = true;
-                _settings.Controls.Add(box);
-                _settingEdits.Add((box, field));
-            }
-
-            var rows = (fields.Count + 1) / 2;
-            _settings.Height = 26 + (rows * rowH) + 6;
-            _shownTrack = -2;
-            _settingsDirty = false;
         }
 
         private bool SaveSettings()
@@ -409,6 +408,7 @@ namespace NH5AiSkillAdjustment
                     continue;
                 }
 
+                edit.Field.Value = value;
                 changed.Add(new AiSettingValue
                 {
                     Group = edit.Field.Group,
