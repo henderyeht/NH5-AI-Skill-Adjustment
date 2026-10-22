@@ -119,8 +119,7 @@ namespace NH5AiSkillAdjustment
                     _track.SelectedIndex = index;
                 }
 
-                _status.ForeColor = Theme.Mute;
-                _status.Text = "Shared means every track on that setup. On/Off is a switch. Cup, Truck, Xfinity, and Next Gen show up when they differ.";
+                _status.Text = "";
             }
             catch (Exception ex)
             {
@@ -282,8 +281,7 @@ namespace NH5AiSkillAdjustment
                             {
                                 DropDownStyle = ComboBoxStyle.DropDownList,
                                 Location = new Point(x + 16 + labelW, y),
-                                Size = new Size(boxW, 22),
-                                ForeColor = Theme.White
+                                Size = new Size(boxW, 22)
                             };
                             pick.Items.Add("On");
                             pick.Items.Add("Off");
@@ -296,10 +294,7 @@ namespace NH5AiSkillAdjustment
                             {
                                 Text = field.Value.ToString("0.####", CultureInfo.InvariantCulture),
                                 Location = new Point(x + 16 + labelW, y),
-                                Size = new Size(boxW, 22),
-                                BackColor = Theme.Asphalt,
-                                ForeColor = Theme.White,
-                                BorderStyle = BorderStyle.None
+                                Size = new Size(boxW, 22)
                             };
                         }
 
