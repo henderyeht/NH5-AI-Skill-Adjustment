@@ -340,17 +340,12 @@ namespace NH5AiSkillAdjustment
             return list;
         }
 
+
         public static void Write(string dllPath, IReadOnlyList<AiTrackField> fields)
         {
             if (dllPath.IndexOf("NASCARHeat5_Data", StringComparison.OrdinalIgnoreCase) >= 0 && GameLocator.HeatIsRunning())
             {
                 throw new InvalidOperationException("NASCAR Heat 5 is running. Close the game, then try again.");
-            }
-
-            var bak = GameBackup.Keep(dllPath, ".nh5ai-stock.bak");
-            if (!File.Exists(bak))
-            {
-                File.Copy(dllPath, bak);
             }
 
             var bytes = File.ReadAllBytes(dllPath);
