@@ -9,9 +9,9 @@ namespace NH5AiSkillAdjustment
     {
         public WheelTextBox()
         {
-            BorderStyle = BorderStyle.None;
-            BackColor = Theme.Asphalt;
-            ForeColor = Theme.White;
+            BorderStyle = BorderStyle.FixedSingle;
+            BackColor = Color.White;
+            ForeColor = Color.Black;
         }
 
         protected override void OnHandleCreated(EventArgs e)
@@ -39,8 +39,8 @@ namespace NH5AiSkillAdjustment
         public WheelCombo()
         {
             FlatStyle = FlatStyle.Flat;
-            BackColor = Theme.Asphalt;
-            ForeColor = Theme.White;
+            BackColor = Color.White;
+            ForeColor = Color.Black;
         }
 
         protected override void OnHandleCreated(EventArgs e)
@@ -66,11 +66,16 @@ namespace NH5AiSkillAdjustment
         private void PaintFace()
         {
             using (var g = Graphics.FromHwnd(Handle))
-            using (var fill = new SolidBrush(Theme.Asphalt))
-            using (var text = new SolidBrush(Theme.White))
-            using (var arrow = new SolidBrush(Theme.Yellow))
+            using (var fill = new SolidBrush(BackColor))
+            using (var text = new SolidBrush(ForeColor))
+            using (var arrow = new SolidBrush(ForeColor.GetBrightness() > 0.6f ? Theme.Yellow : Color.Black))
+            using (var edge = new Pen(Color.FromArgb(160, 160, 160)))
             {
                 g.FillRectangle(fill, ClientRectangle);
+                if (BackColor.GetBrightness() > 0.5f)
+                {
+                    g.DrawRectangle(edge, 0, 0, Width - 1, Height - 1);
+                }
                 var label = Text;
                 if (SelectedIndex >= 0 && SelectedIndex < Items.Count && Items[SelectedIndex] != null)
                 {
