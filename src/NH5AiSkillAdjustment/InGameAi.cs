@@ -33,6 +33,63 @@ namespace NH5AiSkillAdjustment
             return false;
         }
 
+        public static bool RestoreVanilla()
+        {
+            var path = SavePath();
+            if (!File.Exists(path))
+            {
+                return false;
+            }
+
+            var json = ReadText(path);
+            var spots = new List<Spot>();
+            var values = new List<string>();
+            void Take(string property, string value)
+            {
+                foreach (var spot in PropertySpots(json, property))
+                {
+                    var raw = json.Substring(spot.Start, spot.Length);
+                    if (raw == value)
+                    {
+                        continue;
+                    }
+
+                    spots.Add(spot);
+                    values.Add(value);
+                }
+            }
+
+            Take("aiPackSpread", "1");
+            Take("aiStability", "1");
+            Take("aiRecovery", "1");
+            Take("aiStartingGridSpread", "1");
+            Take("aiMechanicalFailures", "2");
+            Take("aiTireWear", "1");
+            Take("aiFuelConsumption", "1");
+            Take("playerCollisionRecoveryAid", "1");
+            Take("enableDraftBuddies", "true");
+            if (spots.Count == 0)
+            {
+                return false;
+            }
+
+            var order = new List<int>();
+            for (var n = 0; n < spots.Count; n++)
+            {
+                order.Add(n);
+            }
+
+            order.Sort((a, b) => spots[b].Start.CompareTo(spots[a].Start));
+            foreach (var i in order)
+            {
+                var spot = spots[i];
+                json = json.Substring(0, spot.Start) + values[i] + json.Substring(spot.Start + spot.Length);
+            }
+
+            WriteText(path, Stamp(json), false);
+            return true;
+        }
+
         public static void Write(int value)
         {
             if (value < AiSkillPatcher.VanillaMin || value > AiSkillPatcher.VanillaMax)
@@ -75,12 +132,12 @@ namespace NH5AiSkillAdjustment
             return Encoding.UTF8.GetString(bytes);
         }
 
-        static void WriteText(string path, string text)
+        static void WriteText(string path, string text, bool backup = true)
         {
-            var backup = path + ".workshop.bak";
-            if (!File.Exists(backup))
+            var copy = path + ".workshop.bak";
+            if (backup && !File.Exists(copy))
             {
-                File.Copy(path, backup);
+                File.Copy(path, copy);
             }
 
             var bytes = Encoding.UTF8.GetBytes(text);
@@ -101,8 +158,13 @@ namespace NH5AiSkillAdjustment
 
         static List<Spot> Spots(string json)
         {
+            return PropertySpots(json, "custom_ai");
+        }
+
+        static List<Spot> PropertySpots(string json, string property)
+        {
             var found = new List<Spot>();
-            const string needle = "\"custom_ai\"";
+            var needle = "\"" + property + "\"";
             var index = 0;
             while (index < json.Length)
             {
