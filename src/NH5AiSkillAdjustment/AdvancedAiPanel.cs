@@ -18,7 +18,9 @@ namespace NH5AiSkillAdjustment
         private bool _laying;
         private string? _dll;
 
-        public bool Pending { get; private set; }
+        private bool _trackPending;
+        private bool _settingsDirty;
+        public bool Pending => _trackPending || _settingsDirty;
 
         public bool TryApply()
         {
@@ -75,6 +77,8 @@ namespace NH5AiSkillAdjustment
                 Size = new Size(700, 28)
             };
             Controls.Add(_status);
+            _settings = new Panel { Location = new Point(0, 36), Size = new Size(960, 0), BackColor = Theme.Asphalt };
+            Controls.Add(_settings);
             _body = new Panel { Location = new Point(0, 44), Size = new Size(960, 400), BackColor = Theme.Asphalt, AutoScroll = true };
             Controls.Add(_body);
             Resize += (_, __) => ShowTrack();
@@ -83,6 +87,7 @@ namespace NH5AiSkillAdjustment
         public void LoadFrom(string? dll)
         {
             _dll = dll;
+            LoadSettings(dll);
             var keep = _track.SelectedItem as string;
             _shownTrack = -2;
             _tracks.Clear();
@@ -136,7 +141,7 @@ namespace NH5AiSkillAdjustment
             }
 
             _laying = true;
-            Pending = false;
+            _trackPending = false;
             try
             {
                 ShowTrackCore();
@@ -144,14 +149,15 @@ namespace NH5AiSkillAdjustment
             finally
             {
                 _laying = false;
-                Pending = false;
             }
         }
 
         private void ShowTrackCore()
         {
             var viewW = Math.Max(360, ClientSize.Width);
-            var viewH = Math.Max(120, ClientSize.Height - 44);
+            _settings.Width = viewW;
+            var bodyTop = _settings.Bottom + 8;
+            var viewH = Math.Max(120, ClientSize.Height - bodyTop);
             if (_shownTrack == _track.SelectedIndex && _shownView.Width == viewW && _shownView.Height == viewH && _body.Controls.Count > 0)
             {
                 return;
@@ -166,7 +172,7 @@ namespace NH5AiSkillAdjustment
 
             var fields = _tracks[_track.SelectedIndex].Fields;
             _body.AutoScroll = true;
-            _body.SetBounds(0, 44, viewW, viewH);
+            _body.SetBounds(0, bodyTop, viewW, viewH);
             const int rowH = 26;
             const int boxW = 108;
             const int maxCols = 5;
@@ -298,10 +304,10 @@ namespace NH5AiSkillAdjustment
                             };
                         }
 
-            editor.TextChanged += (_, __) => Pending = true;
+            editor.TextChanged += (_, __) => _trackPending = true;
             if (editor is ComboBox trackPick)
             {
-                trackPick.SelectedIndexChanged += (_, __) => Pending = true;
+                trackPick.SelectedIndexChanged += (_, __) => _trackPending = true;
             }
 
             _body.Controls.Add(editor);
@@ -316,10 +322,137 @@ namespace NH5AiSkillAdjustment
             _shownView = new Size(viewW, viewH);
         }
 
+        private readonly Panel _settings;
+        private readonly List<(TextBox Box, AiSettingValue Field)> _settingEdits = new List<(TextBox, AiSettingValue)>();
+
+        private void LoadSettings(string? dll)
+        {
+            _settings.Controls.Clear();
+            _settingEdits.Clear();
+            _settings.Height = 0;
+            _settingsDirty = false;
+            if (string.IsNullOrEmpty(dll))
+            {
+                return;
+            }
+
+            List<AiSettingValue> fields;
+            try
+            {
+                fields = AiSettingValues.Read(dll ?? "");
+            }
+            catch (Exception)
+            {
+                return;
+            }
+
+            _settings.Controls.Add(new Label
+            {
+                Text = "Setting values",
+                ForeColor = Theme.Yellow,
+                BackColor = Theme.Asphalt,
+                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+                Location = new Point(8, 2),
+                Size = new Size(240, 20)
+            });
+            const int rowH = 28;
+            const int colW = 460;
+            for (var i = 0; i < fields.Count; i++)
+            {
+                var field = fields[i];
+                var x = 8 + (i % 2) * colW;
+                var y = 26 + (i / 2) * rowH;
+                _settings.Controls.Add(new Label
+                {
+                    Text = field.Group + " / " + field.Label,
+                    ForeColor = Theme.White,
+                    BackColor = Theme.Asphalt,
+                    AutoEllipsis = true,
+                    Location = new Point(x, y + 3),
+                    Size = new Size(330, 20)
+                });
+                var box = new WheelTextBox
+                {
+                    Text = field.Value.ToString("R", CultureInfo.InvariantCulture),
+                    Location = new Point(x + 334, y),
+                    Size = new Size(90, 22)
+                };
+                box.TextChanged += (_, __) => _settingsDirty = true;
+                _settings.Controls.Add(box);
+                _settingEdits.Add((box, field));
+            }
+
+            var rows = (fields.Count + 1) / 2;
+            _settings.Height = 26 + (rows * rowH) + 6;
+            _shownTrack = -2;
+            _settingsDirty = false;
+        }
+
+        private bool SaveSettings()
+        {
+            if (_settingEdits.Count == 0 || string.IsNullOrEmpty(_dll))
+            {
+                _settingsDirty = false;
+                return false;
+            }
+
+            var changed = new List<AiSettingValue>();
+            foreach (var edit in _settingEdits)
+            {
+                if (!float.TryParse(edit.Box.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+                {
+                    throw new InvalidOperationException("Could not read " + edit.Field.Label + ".");
+                }
+
+                if (Math.Abs(value - edit.Field.Value) <= 0.0000001f)
+                {
+                    continue;
+                }
+
+                changed.Add(new AiSettingValue
+                {
+                    Group = edit.Field.Group,
+                    Label = edit.Field.Label,
+                    Value = value,
+                    FileOffset = edit.Field.FileOffset
+                });
+            }
+
+            if (changed.Count == 0)
+            {
+                _settingsDirty = false;
+                return false;
+            }
+
+            var dll = _dll ?? "";
+            new AiSkillPatcher(dll).KeepRestoreCopy();
+            AiSettingValues.Write(dll, changed);
+            _settingsDirty = false;
+            return true;
+        }
+
         private void ApplyTrack()
         {
+            var settingsSaved = false;
+            try
+            {
+                settingsSaved = SaveSettings();
+            }
+            catch (Exception ex)
+            {
+                _status.ForeColor = Theme.Conflict;
+                _status.Text = ex.Message;
+                return;
+            }
+
             if (string.IsNullOrEmpty(_dll))
             {
+                if (settingsSaved)
+                {
+                    _status.ForeColor = Theme.Yellow;
+                    _status.Text = "Saved AI settings.";
+                }
+
                 return;
             }
 
@@ -370,9 +503,16 @@ namespace NH5AiSkillAdjustment
 
             if (changed.Count == 0)
             {
+                _trackPending = false;
+                if (settingsSaved)
+                {
+                    _status.ForeColor = Theme.Yellow;
+                    _status.Text = "Saved AI settings.";
+                    return;
+                }
+
                 _status.ForeColor = Theme.Mute;
                 _status.Text = "No track values changed.";
-                Pending = false;
                 return;
             }
 
@@ -381,7 +521,7 @@ namespace NH5AiSkillAdjustment
                 AiTrackValues.Write(_dll ?? "", changed);
                 LoadFrom(_dll);
                 _status.ForeColor = Theme.Yellow;
-                _status.Text = "Applied " + changed.Count + " track value" + (changed.Count == 1 ? "" : "s") + ".";
+                _status.Text = "Applied " + changed.Count + " track value" + (changed.Count == 1 ? "" : "s") + "." + (settingsSaved ? " Saved AI settings." : "");
             }
             catch (Exception ex)
             {
