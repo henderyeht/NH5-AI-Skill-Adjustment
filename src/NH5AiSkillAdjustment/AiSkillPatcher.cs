@@ -127,9 +127,9 @@ namespace NH5AiSkillAdjustment
                 throw new InvalidOperationException("Could not find Assembly-CSharp.dll. Use Locate game.");
             }
 
+            EnsureVanillaBackup();
             var bytes = File.ReadAllBytes(_dllPath);
             RestoreRatingToStock(bytes);
-            EnsureStockBackup(bytes);
 
             var sites = LocateSites(bytes);
             var extra = ExtraFor(value);
@@ -154,26 +154,9 @@ namespace NH5AiSkillAdjustment
                 throw new InvalidOperationException("Could not find Assembly-CSharp.dll. Use Locate game.");
             }
 
-            var bak = StockBackupPath();
-            if (File.Exists(bak))
-            {
-                var stock = File.ReadAllBytes(bak);
-                WriteDll(stock, alreadyBackedUp: true);
-                if (File.Exists(_statePath))
-                {
-                    File.Delete(_statePath);
-                }
-
-                return "restored";
-            }
-
-            var bytes = File.ReadAllBytes(_dllPath);
-            var target = Resolve(bytes);
-            RestoreRatingToStock(bytes);
-            var sites = LocateSites(bytes);
-            ApplyTable(bytes, sites, 1f, StockMaxAdjusted);
-            RestoreRatingAt(bytes, sites.RatingOffset, sites.RatingOriginal);
-            WriteDll(bytes, alreadyBackedUp: true);
+            var target = Resolve(File.ReadAllBytes(_dllPath));
+            var stock = File.ReadAllBytes(EnsureVanillaBackup());
+            WriteDll(stock, alreadyBackedUp: true);
             if (File.Exists(_statePath))
             {
                 File.Delete(_statePath);
@@ -477,13 +460,48 @@ namespace NH5AiSkillAdjustment
             }
         }
 
-        private void EnsureStockBackup(byte[] stockBytes)
+        private string EnsureVanillaBackup()
         {
-            var bak = StockBackupPath();
-            if (!File.Exists(bak))
+            var path = StockBackupPath();
+            Directory.CreateDirectory(Path.GetDirectoryName(path) ?? path);
+            if (File.Exists(path))
             {
-                File.WriteAllBytes(bak, stockBytes);
+                var saved = File.ReadAllBytes(path);
+                if (IsVanilla(saved))
+                {
+                    return path;
+                }
+
+                MakeSkillVanilla(saved);
+                File.WriteAllBytes(path, saved);
+                return path;
             }
+
+            var created = File.ReadAllBytes(_dllPath);
+            MakeSkillVanilla(created);
+            File.WriteAllBytes(path, created);
+            return path;
+        }
+
+        private bool IsVanilla(byte[] bytes)
+        {
+            try
+            {
+                var target = Resolve(bytes);
+                return target.Kind == "stock" && Math.Abs(target.Extra - 1f) < 0.0001f;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        }
+
+        private static void MakeSkillVanilla(byte[] bytes)
+        {
+            RestoreRatingToStock(bytes);
+            var sites = LocateSites(bytes);
+            ApplyTable(bytes, sites, 1f, StockMaxAdjusted);
+            RestoreRatingAt(bytes, sites.RatingOffset, sites.RatingOriginal);
         }
 
         private string StockBackupPath()
