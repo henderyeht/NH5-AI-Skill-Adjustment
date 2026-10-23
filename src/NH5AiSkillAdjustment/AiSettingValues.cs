@@ -278,5 +278,74 @@ namespace NH5AiSkillAdjustment
 
             throw new InvalidOperationException("Could not find the AI setting values in this DLL.");
         }
+
+        public static bool RevertOwn(byte[] bytes, string dllPath)
+        {
+            List<AiSettingValue> fields;
+            try
+            {
+                fields = Read(dllPath);
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+
+            var changed = false;
+            foreach (var field in fields)
+            {
+                if (!SettingOwned(field) || field.FileOffset < 0 || field.FileOffset + 4 > bytes.Length)
+                {
+                    continue;
+                }
+
+                Array.Copy(BitConverter.GetBytes(field.Vanilla), 0, bytes, field.FileOffset, 4);
+                changed = true;
+            }
+
+            return changed;
+        }
+
+        private static bool SettingOwned(AiSettingValue field)
+        {
+            if (field.Side == 0 || Math.Abs(field.Vanilla) < 0.0000001f)
+            {
+                return false;
+            }
+
+            if (Math.Abs(field.Value - field.Vanilla) < 0.0001f)
+            {
+                return false;
+            }
+
+            var ratio = field.Value / field.Vanilla;
+            float factor;
+            if (field.Shrinks)
+            {
+                if (ratio <= 0f || ratio > 1f)
+                {
+                    return false;
+                }
+
+                factor = field.Vanilla / field.Value;
+            }
+            else
+            {
+                if (ratio < 1f)
+                {
+                    return false;
+                }
+
+                factor = ratio;
+            }
+
+            if (factor < 0.999f || factor > 2.001f)
+            {
+                return false;
+            }
+
+            var steps = (factor - 1f) * 100f;
+            return Math.Abs(steps - (float)Math.Round(steps)) < 0.02f;
+        }
     }
 }
