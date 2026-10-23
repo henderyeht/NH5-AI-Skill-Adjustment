@@ -12,6 +12,7 @@ namespace NH5AiSkillAdjustment
         public string Group = "";
         public string Label = "";
         public float Value;
+        public float Vanilla;
         public int FileOffset;
         public int Order;
     }
@@ -33,6 +34,48 @@ namespace NH5AiSkillAdjustment
             ("Mechanical Failures", "Infrequent", 10),
             ("Mechanical Failures", "Frequent", 11)
         };
+
+        private static readonly float[] GameVanilla =
+        {
+            0.25f, 2f, 1.8f, 0.5f, 10f, 3.3333333f, 1.6666666f, 0.5f, 1.5f, -1f, 2f, 0.5f
+        };
+
+        public const int MinPercent = 60;
+        public const int MaxPercent = 200;
+
+        public static int PercentFor(IReadOnlyList<AiSettingValue> fields)
+        {
+            double sum = 0;
+            var count = 0;
+            foreach (var field in fields)
+            {
+                if (Math.Abs(field.Vanilla) < 0.0000001f)
+                {
+                    continue;
+                }
+
+                sum += field.Value / field.Vanilla;
+                count++;
+            }
+
+            if (count == 0)
+            {
+                return 100;
+            }
+
+            var percent = (int)Math.Round(sum / count * 100.0);
+            if (percent < MinPercent)
+            {
+                return MinPercent;
+            }
+
+            if (percent > MaxPercent)
+            {
+                return MaxPercent;
+            }
+
+            return percent;
+        }
 
         public static List<AiSettingValue> Read(string dllPath)
         {
@@ -76,6 +119,7 @@ namespace NH5AiSkillAdjustment
                     Group = name.Group,
                     Label = name.Label,
                     Value = Convert.ToSingle(ins.Operand, CultureInfo.InvariantCulture),
+                    Vanilla = GameVanilla[list.Count],
                     FileOffset = code + ins.Offset + 1,
                     Order = name.Order
                 });
