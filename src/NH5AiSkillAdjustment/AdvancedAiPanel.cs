@@ -169,6 +169,23 @@ namespace NH5AiSkillAdjustment
             }
 
             var fields = _tracks[_track.SelectedIndex].Fields;
+            var skillScale = 1f;
+            var dll = _dll;
+            if (!string.IsNullOrEmpty(dll))
+            {
+                try
+                {
+                    var extra = new AiSkillPatcher(dll!).Resolve().Extra;
+                    if (Math.Abs(extra - 1f) > 0.0005f)
+                    {
+                        skillScale = extra;
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                }
+            }
+
             _body.AutoScroll = true;
             _body.SetBounds(0, bodyTop, viewW, viewH);
             const int rowH = 26;
@@ -186,30 +203,7 @@ namespace NH5AiSkillAdjustment
                 blocks[blocks.Count - 1].fields.Add(field);
             }
 
-            var settingOf = new Dictionary<AiTrackField, AiSettingValue>();
-            var lead = new List<(string title, List<AiTrackField> fields)>();
-            foreach (var setting in _settingFields)
-            {
-                if (lead.Count == 0 || lead[lead.Count - 1].title != setting.Group)
-                {
-                    lead.Add((setting.Group, new List<AiTrackField>()));
-                }
-
-                var row = new AiTrackField
-                {
-                    Group = setting.Group,
-                    Label = setting.Label,
-                    Value = setting.Value
-                };
-                settingOf[row] = setting;
-                lead[lead.Count - 1].fields.Add(row);
-            }
-
-            if (lead.Count > 0)
-            {
-                blocks.InsertRange(0, lead);
-            }
-
+            var top = AddSettingSliders(viewW);
             var scrollW = SystemInformation.VerticalScrollBarWidth;
             var cols = Math.Min(maxCols, Math.Max(1, blocks.Count));
             var fit = Math.Max(1, (viewW - scrollW) / minCol);
@@ -278,7 +272,7 @@ namespace NH5AiSkillAdjustment
 
                 var x = shown * colW;
                 shown++;
-                var y = 0;
+                var y = top;
                 foreach (var block in placed[c])
                 {
                     _body.Controls.Add(new Label
@@ -293,10 +287,14 @@ namespace NH5AiSkillAdjustment
                     y += rowH;
                     foreach (var field in block.fields)
                     {
+                        var scaled = Math.Abs(skillScale - 1f) > 0.0005f
+                            && field.Group == "Skill"
+                            && field.Label.IndexOf("lap time", StringComparison.OrdinalIgnoreCase) < 0;
+                        field.DisplayScale = scaled ? skillScale : 1f;
                         _body.Controls.Add(new Label
                         {
                             Text = field.Label,
-                            ForeColor = Theme.White,
+                            ForeColor = scaled ? Theme.Red : Theme.White,
                             BackColor = Theme.Asphalt,
                             AutoEllipsis = true,
                             Location = new Point(x + 8, y + 3),
@@ -318,56 +316,104 @@ namespace NH5AiSkillAdjustment
                         }
                         else
                         {
-                            var settingRow = settingOf.ContainsKey(field);
                             editor = new WheelTextBox
                             {
-                                Text = settingRow
-                                    ? field.Value.ToString("R", CultureInfo.InvariantCulture)
-                                    : field.Value.ToString("0.####", CultureInfo.InvariantCulture),
+                                Text = (field.Value * field.DisplayScale).ToString("0.####", CultureInfo.InvariantCulture),
                                 Location = new Point(x + 16 + labelW, y),
-                                Size = new Size(boxW, 22)
+                                Size = new Size(boxW, 22),
+                                ForeColor = scaled ? Theme.Red : Color.Black
                             };
                         }
 
-            var fromSetting = settingOf.TryGetValue(field, out var settingValue);
-            editor.TextChanged += (_, __) =>
-            {
-                if (fromSetting)
-                {
-                    _settingsDirty = true;
-                }
-                else
-                {
-                    _trackPending = true;
-                }
-            };
+            editor.TextChanged += (_, __) => _trackPending = true;
             if (editor is ComboBox trackPick)
             {
                 trackPick.SelectedIndexChanged += (_, __) => _trackPending = true;
             }
 
             _body.Controls.Add(editor);
-            if (fromSetting)
-            {
-                _settingEdits.Add(((TextBox)editor, settingValue));
-            }
-            else
-            {
-                _edits.Add((editor, field));
-            }
+            _edits.Add((editor, field));
                         y += rowH;
                     }
                 }
             }
 
-            _body.AutoScrollMinSize = new Size(Math.Max(used * colW, usable), contentH + 12);
+            _body.AutoScrollMinSize = new Size(Math.Max(used * colW, usable), top + contentH + 12);
             _shownTrack = _track.SelectedIndex;
             _shownView = new Size(viewW, viewH);
             _settingsDirty = false;
         }
 
+        private sealed class SettingEdit
+        {
+            public SkillSlider Slider = null!;
+            public int Shown;
+            public List<AiSettingValue> Fields = null!;
+        }
+
         private List<AiSettingValue> _settingFields = new List<AiSettingValue>();
-        private readonly List<(TextBox Box, AiSettingValue Field)> _settingEdits = new List<(TextBox, AiSettingValue)>();
+        private readonly List<SettingEdit> _settingEdits = new List<SettingEdit>();
+
+        private int AddSettingSliders(int viewW)
+        {
+            var groups = new List<List<AiSettingValue>>();
+            foreach (var field in _settingFields)
+            {
+                if (groups.Count == 0 || groups[groups.Count - 1][0].Group != field.Group)
+                {
+                    groups.Add(new List<AiSettingValue>());
+                }
+
+                groups[groups.Count - 1].Add(field);
+            }
+
+            const int rowH = 36;
+            var y = 0;
+            foreach (var group in groups)
+            {
+                var percent = AiSettingValues.PercentFor(group);
+                var title = group[0].Group == "Recovery Skill" ? "Recovery" : group[0].Group;
+                _body.Controls.Add(new Label
+                {
+                    Text = title,
+                    ForeColor = Theme.Yellow,
+                    BackColor = Theme.Asphalt,
+                    Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+                    Location = new Point(8, y + 6),
+                    Size = new Size(200, 22)
+                });
+                var readout = new Label
+                {
+                    Text = percent + "%",
+                    ForeColor = Theme.Yellow,
+                    BackColor = Theme.Asphalt,
+                    Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+                    TextAlign = ContentAlignment.MiddleRight,
+                    Location = new Point(viewW - 78, y + 6),
+                    Size = new Size(64, 22)
+                };
+                _body.Controls.Add(readout);
+                var slider = new SkillSlider
+                {
+                    Minimum = AiSettingValues.MinPercent,
+                    Maximum = AiSettingValues.MaxPercent,
+                    Value = percent,
+                    Location = new Point(214, y + 2),
+                    Size = new Size(Math.Max(120, viewW - 300), 32),
+                    BackColor = Theme.Asphalt
+                };
+                slider.ValueChanged += (_, __) =>
+                {
+                    readout.Text = slider.Value + "%";
+                    _settingsDirty = true;
+                };
+                _body.Controls.Add(slider);
+                _settingEdits.Add(new SettingEdit { Slider = slider, Shown = percent, Fields = group });
+                y += rowH;
+            }
+
+            return groups.Count == 0 ? 0 : y + 8;
+        }
 
         private void LoadSettings(string? dll)
         {
@@ -398,24 +444,19 @@ namespace NH5AiSkillAdjustment
             var changed = new List<AiSettingValue>();
             foreach (var edit in _settingEdits)
             {
-                if (!float.TryParse(edit.Box.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
-                {
-                    throw new InvalidOperationException("Could not read " + edit.Field.Label + ".");
-                }
-
-                if (Math.Abs(value - edit.Field.Value) <= 0.0000001f)
+                if (edit.Slider.Value == edit.Shown)
                 {
                     continue;
                 }
 
-                edit.Field.Value = value;
-                changed.Add(new AiSettingValue
+                var scale = edit.Slider.Value / 100f;
+                foreach (var field in edit.Fields)
                 {
-                    Group = edit.Field.Group,
-                    Label = edit.Field.Label,
-                    Value = value,
-                    FileOffset = edit.Field.FileOffset
-                });
+                    field.Value = field.Vanilla * scale;
+                    changed.Add(field);
+                }
+
+                edit.Shown = edit.Slider.Value;
             }
 
             if (changed.Count == 0)
@@ -488,12 +529,20 @@ namespace NH5AiSkillAdjustment
                     return;
                 }
 
-                if (Math.Abs(value - edit.field.Value) > 0.0000001f)
+                var scale = edit.field.DisplayScale;
+                if (scale < 0.0001f)
+                {
+                    scale = 1f;
+                }
+
+                var baseline = edit.field.Value * scale;
+                var epsilon = Math.Abs(scale - 1f) > 0.0005f ? 0.00005f : 0.0000001f;
+                if (Math.Abs(value - baseline) > epsilon)
                 {
                     changed.Add(new AiTrackField
                     {
                         Label = edit.field.Label,
-                        Value = value,
+                        Value = value / scale,
                         FileOffset = edit.field.FileOffset,
                         WriteKind = edit.field.WriteKind,
                         ExtraOffsets = edit.field.ExtraOffsets
