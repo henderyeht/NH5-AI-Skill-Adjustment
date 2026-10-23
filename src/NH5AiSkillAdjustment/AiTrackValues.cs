@@ -16,6 +16,7 @@ namespace NH5AiSkillAdjustment
         public bool BoolValue;
         public int FileOffset;
         public int WriteKind;
+        public float DisplayScale = 1f;
         public List<int> ExtraOffsets = new List<int>();
     }
 
