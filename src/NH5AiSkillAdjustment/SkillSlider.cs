@@ -12,6 +12,11 @@ namespace NH5AiSkillAdjustment
 
         public int Minimum { get; set; } = 60;
         public int Maximum { get; set; } = 200;
+        public bool FromCenter { get; set; }
+        public bool ColorFromNeutral { get; set; }
+        public int Neutral { get; set; }
+        public int ThumbWidth { get; set; }
+        public string CenterLabel { get; set; } = "";
 
         public int Value
         {
@@ -45,23 +50,95 @@ namespace NH5AiSkillAdjustment
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.Clear(BackColor);
 
-            var track = new Rectangle(22, Height / 2 - 6, Width - 44, 12);
-            using (var trackBrush = new SolidBrush(Theme.Track))
+            var basic = ThumbWidth <= 0;
+            var track = basic
+                ? new Rectangle(22, Height / 2 - 6, Math.Max(1, Width - 44), 12)
+                : new Rectangle(8, string.IsNullOrEmpty(CenterLabel) ? Height / 2 - 4 : Height - 18, Math.Max(1, Width - 16), 8);
+            var trackColor = Theme.Track;
+            if (!basic && ColorFromNeutral)
+            {
+                if (Value > Neutral)
+                {
+                    trackColor = Theme.Blue;
+                }
+                else if (Value < Neutral)
+                {
+                    trackColor = Theme.Red;
+                }
+            }
+
+            using (var trackBrush = new SolidBrush(trackColor))
             {
                 g.FillRectangle(trackBrush, track);
             }
 
             var t = Maximum == Minimum ? 0f : (float)(Value - Minimum) / (Maximum - Minimum);
-            var fillWidth = (int)(track.Width * t);
-            using (var fill = new SolidBrush(Theme.Blue))
+            var thumbX = track.X + (int)(track.Width * t);
+            if (basic || !ColorFromNeutral)
             {
-                g.FillRectangle(fill, track.X, track.Y, fillWidth, track.Height);
+                using (var fill = new SolidBrush(Theme.Blue))
+                {
+                    if (FromCenter)
+                    {
+                        var mid = track.X + (track.Width / 2);
+                        var left = Math.Min(mid, thumbX);
+                        g.FillRectangle(fill, left, track.Y, Math.Abs(thumbX - mid), track.Height);
+                    }
+                    else
+                    {
+                        g.FillRectangle(fill, track.X, track.Y, Math.Max(0, thumbX - track.X), track.Height);
+                    }
+                }
+            }
+            if (!string.IsNullOrEmpty(CenterLabel))
+            {
+                var mid = track.X + (track.Width / 2);
+                using (var tick = new Pen(Theme.White))
+                {
+                    g.DrawLine(tick, mid, track.Y - 3, mid, track.Bottom + 3);
+                }
+
+                using (var font = new Font("Segoe UI", 7.5f, FontStyle.Bold))
+                using (var brush = new SolidBrush(Theme.White))
+                {
+                    var size = g.MeasureString(CenterLabel, font);
+                    g.DrawString(CenterLabel, font, brush, mid - (size.Width / 2f), 0);
+                }
             }
 
-            var thumbX = track.X + fillWidth;
-            var thumbH = Math.Min(46, Math.Max(16, Height - 6));
-            var thumbW = Math.Min(40, thumbH);
-            var thumb = new Rectangle(thumbX - thumbW / 2, (Height - thumbH) / 2, thumbW, thumbH);
+            int thumbW;
+            int thumbH;
+            int thumbTop;
+            if (basic)
+            {
+                thumbH = Math.Min(46, Math.Max(16, Height - 6));
+                thumbW = Math.Min(40, thumbH);
+                thumbTop = (Height - thumbH) / 2;
+            }
+            else
+            {
+                thumbW = ThumbWidth;
+                thumbH = 22;
+                var roomTop = string.IsNullOrEmpty(CenterLabel) ? 2 : 14;
+                var roomBottom = Height - 2;
+                if (thumbH > roomBottom - roomTop)
+                {
+                    thumbH = Math.Max(12, roomBottom - roomTop);
+                }
+
+                thumbTop = track.Y + (track.Height / 2) - (thumbH / 2);
+                if (thumbTop < roomTop)
+                {
+                    thumbTop = roomTop;
+                }
+
+                if (thumbTop + thumbH > roomBottom)
+                {
+                    thumbTop = Math.Max(roomTop, roomBottom - thumbH);
+                }
+            }
+
+            var thumb = new Rectangle(thumbX - (thumbW / 2), thumbTop, thumbW, thumbH);
             Theme.DrawCheckeredThumb(g, thumb, Theme.Yellow);
         }
 
@@ -96,7 +173,9 @@ namespace NH5AiSkillAdjustment
 
         private void SetFromX(int x)
         {
-            var track = new Rectangle(22, 0, Math.Max(1, Width - 44), Height);
+            var inset = ThumbWidth <= 0 ? 22 : 8;
+            var span = ThumbWidth <= 0 ? 44 : 16;
+            var track = new Rectangle(inset, 0, Math.Max(1, Width - span), Height);
             var t = (x - track.X) / (float)track.Width;
             t = Math.Max(0f, Math.Min(1f, t));
             Value = Minimum + (int)Math.Round(t * (Maximum - Minimum));
