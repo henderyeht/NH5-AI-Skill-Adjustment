@@ -565,7 +565,7 @@ namespace NH5AiSkillAdjustment
                 _status.ForeColor = Theme.Yellow;
                 _status.Text = kind == "already-stock"
                     ? "Already using vanilla AI."
-                    : "Restored vanilla AI.";
+                    : "Restored this tool's AI values. Other tools were left in place.";
             }
             catch (Exception ex)
             {
