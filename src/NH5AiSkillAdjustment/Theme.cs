@@ -57,19 +57,49 @@ namespace NH5AiSkillAdjustment
 
         public static void DrawOutlinedText(Graphics g, string text, Font font, RectangleF bounds, StringFormat format)
         {
-            var emSize = font.SizeInPoints * g.DpiY / 72f;
-            using (var path = new GraphicsPath())
+            if (string.IsNullOrEmpty(text) || bounds.Width < 1f || bounds.Height < 1f)
             {
-                path.AddString(text, font.FontFamily, (int)font.Style, emSize, bounds, format);
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                using (var outline = new Pen(Color.Black, 2.6f) { LineJoin = LineJoin.Round })
+                return;
+            }
+
+            var emSize = font.SizeInPoints * g.DpiY / 72f;
+            using (var origin = new StringFormat(StringFormat.GenericTypographic))
+            {
+                origin.FormatFlags |= StringFormatFlags.NoWrap | StringFormatFlags.NoClip;
+                var measured = g.MeasureString(text, font, PointF.Empty, origin);
+                var x = bounds.X;
+                if (format != null && format.Alignment == StringAlignment.Center)
                 {
-                    g.DrawPath(outline, path);
+                    x = bounds.X + Math.Max(0f, (bounds.Width - measured.Width) / 2f);
+                }
+                else if (format != null && format.Alignment == StringAlignment.Far)
+                {
+                    x = bounds.Right - measured.Width;
                 }
 
-                using (var fill = new SolidBrush(White))
+                var y = bounds.Y;
+                if (format != null && format.LineAlignment == StringAlignment.Center)
                 {
-                    g.FillPath(fill, path);
+                    y = bounds.Y + Math.Max(0f, (bounds.Height - measured.Height) / 2f);
+                }
+                else if (format != null && format.LineAlignment == StringAlignment.Far)
+                {
+                    y = bounds.Bottom - measured.Height;
+                }
+
+                using (var path = new GraphicsPath())
+                {
+                    path.AddString(text, font.FontFamily, (int)font.Style, emSize, new PointF(x, y), origin);
+                    g.SmoothingMode = SmoothingMode.AntiAlias;
+                    using (var outline = new Pen(Color.Black, 2.6f) { LineJoin = LineJoin.Round })
+                    {
+                        g.DrawPath(outline, path);
+                    }
+
+                    using (var fill = new SolidBrush(White))
+                    {
+                        g.FillPath(fill, path);
+                    }
                 }
             }
         }
