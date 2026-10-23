@@ -15,24 +15,26 @@ namespace NH5AiSkillAdjustment
         public float Vanilla;
         public int FileOffset;
         public int Order;
+        public int Side;
+        public bool Shrinks;
     }
 
     internal static class AiSettingValues
     {
-        private static readonly (string Group, string Label, int Order)[] Names =
+        private static readonly (string Group, string Label, int Order, int Side, bool Shrinks)[] Names =
         {
-            ("Stability", "Less Stable, bump force", 2),
-            ("Stability", "Less Stable, aftershock", 3),
-            ("Stability", "More Stable, bump force", 0),
-            ("Stability", "More Stable, aftershock", 1),
-            ("Recovery Skill", "Less Skill", 6),
-            ("Recovery Skill", "Normal", 5),
-            ("Recovery Skill", "More Skill", 4),
-            ("Starting Spread", "Compressed", 8),
-            ("Starting Spread", "Expanded", 7),
-            ("Mechanical Failures", "None", 9),
-            ("Mechanical Failures", "Infrequent", 10),
-            ("Mechanical Failures", "Frequent", 11)
+            ("Stability", "Less stable, bump", 2, -1, true),
+            ("Stability", "Less stable, aftershock", 3, -1, false),
+            ("Stability", "More stable, bump", 0, 1, false),
+            ("Stability", "More stable, aftershock", 1, 1, true),
+            ("Recovery Skill", "Slower", 6, -1, false),
+            ("Recovery Skill", "Normal", 5, 0, false),
+            ("Recovery Skill", "Faster", 4, 1, true),
+            ("Starting Spread", "Compressed", 8, -1, true),
+            ("Starting Spread", "Expanded", 7, 1, false),
+            ("Mechanical Failures", "Off", 9, 0, false),
+            ("Mechanical Failures", "Fewer", 10, -1, false),
+            ("Mechanical Failures", "More", 11, 1, true)
         };
 
         private static readonly float[] GameVanilla =
@@ -40,41 +42,125 @@ namespace NH5AiSkillAdjustment
             0.25f, 2f, 1.8f, 0.5f, 10f, 3.3333333f, 1.6666666f, 0.5f, 1.5f, -1f, 2f, 0.5f
         };
 
-        public const int MinPercent = 60;
-        public const int MaxPercent = 200;
+        public const int MinPercent = -100;
+        public const int MaxPercent = 100;
 
-        public static int PercentFor(IReadOnlyList<AiSettingValue> fields)
+        public static void Ends(string group, out string title, out string left, out string right)
         {
-            double sum = 0;
-            var count = 0;
+            if (group == "Stability")
+            {
+                title = "Stability";
+                left = "Less";
+                right = "More";
+                return;
+            }
+
+            if (group == "Recovery Skill")
+            {
+                title = "Recovery";
+                left = "Slower";
+                right = "Faster";
+                return;
+            }
+
+            if (group == "Starting Spread")
+            {
+                title = "Starting spread";
+                left = "Compressed";
+                right = "Expanded";
+                return;
+            }
+
+            title = "Mechanical failures";
+            left = "Few";
+            right = "More";
+        }
+
+        public static string Word(int position, string left, string right)
+        {
+            if (position == 0)
+            {
+                return "Vanilla";
+            }
+
+            return position < 0 ? left : right;
+        }
+
+        public static int PositionFor(IReadOnlyList<AiSettingValue> fields)
+        {
+            double left = 0;
+            double right = 0;
+            var leftCount = 0;
+            var rightCount = 0;
             foreach (var field in fields)
             {
-                if (Math.Abs(field.Vanilla) < 0.0000001f)
+                if (field.Side == 0 || Math.Abs(field.Vanilla) < 0.0000001f)
                 {
                     continue;
                 }
 
-                sum += field.Value / field.Vanilla;
-                count++;
+                var ratio = field.Value / field.Vanilla;
+                double strength;
+                if (field.Shrinks)
+                {
+                    strength = ratio > 0.0000001f && ratio < 1f ? (1.0 / ratio) - 1.0 : 0;
+                }
+                else
+                {
+                    strength = ratio > 1f ? ratio - 1.0 : 0;
+                }
+
+                if (strength < 0)
+                {
+                    strength = 0;
+                }
+
+                if (strength > 1)
+                {
+                    strength = 1;
+                }
+
+                if (field.Side < 0)
+                {
+                    left += strength;
+                    leftCount++;
+                }
+                else
+                {
+                    right += strength;
+                    rightCount++;
+                }
             }
 
-            if (count == 0)
+            left = leftCount == 0 ? 0 : left / leftCount;
+            right = rightCount == 0 ? 0 : right / rightCount;
+            if (left < 0.02 && right < 0.02)
             {
-                return 100;
+                return 0;
             }
 
-            var percent = (int)Math.Round(sum / count * 100.0);
-            if (percent < MinPercent)
+            if (right >= left)
             {
-                return MinPercent;
+                return (int)Math.Round(right * 100.0);
             }
 
-            if (percent > MaxPercent)
+            return -(int)Math.Round(left * 100.0);
+        }
+
+        public static void Apply(IReadOnlyList<AiSettingValue> fields, int position)
+        {
+            var factor = 1f + (Math.Abs(position) / 100f);
+            foreach (var field in fields)
             {
-                return MaxPercent;
-            }
+                var idle = position == 0 || field.Side == 0 || (position > 0 && field.Side < 0) || (position < 0 && field.Side > 0);
+                if (idle)
+                {
+                    field.Value = field.Vanilla;
+                    continue;
+                }
 
-            return percent;
+                field.Value = field.Shrinks ? field.Vanilla / factor : field.Vanilla * factor;
+            }
         }
 
         public static List<AiSettingValue> Read(string dllPath)
@@ -121,7 +207,9 @@ namespace NH5AiSkillAdjustment
                     Value = Convert.ToSingle(ins.Operand, CultureInfo.InvariantCulture),
                     Vanilla = GameVanilla[list.Count],
                     FileOffset = code + ins.Offset + 1,
-                    Order = name.Order
+                    Order = name.Order,
+                    Side = name.Side,
+                    Shrinks = name.Shrinks
                 });
             }
 
