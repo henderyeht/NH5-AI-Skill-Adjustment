@@ -14,10 +14,30 @@ namespace NH5AiSkillAdjustment
         public float Value;
         public bool Boolean;
         public bool BoolValue;
+        public string Key = "";
+        public string Pair = "";
+        public float Vanilla;
         public int FileOffset;
         public int WriteKind;
         public float DisplayScale = 1f;
+        public bool Shared;
         public List<int> ExtraOffsets = new List<int>();
+    }
+
+    internal enum TrackAdjustKind
+    {
+        Scale,
+        Range,
+        Percent
+    }
+
+    internal sealed class TrackAdjust
+    {
+        public string Title = "";
+        public string Left = "";
+        public string Right = "";
+        public TrackAdjustKind Kind;
+        public string[] Keys = Array.Empty<string>();
     }
 
     internal sealed class AiTrackInfo
@@ -56,105 +76,87 @@ namespace NH5AiSkillAdjustment
 
         private static readonly Name[] Catalog =
         {
-            new Name("draft_influence", "Draft", "Draft strength"),
-            new Name("min_draft_lon_speed_mph", "Draft", "Minimum draft speed"),
-            new Name("max_draft_lon_speed_mph", "Draft", "Maximum draft speed"),
+            new Name("draft_influence", "Draft", "Draft"),
+            new Name("min_draft_lon_speed_mph", "Draft", "Draft speed, low"),
+            new Name("max_draft_lon_speed_mph", "Draft", "Draft speed, high"),
             new Name("min_draft_lon_carlen", "Draft", "Draft length, close"),
             new Name("max_draft_lon_carlen", "Draft", "Draft length, far"),
             new Name("min_draft_width_carwid", "Draft", "Draft width, narrow"),
             new Name("max_draft_width_carwid", "Draft", "Draft width, wide"),
             new Name("enable_draftbuddy", "Draft", "Draft partners"),
-            new Name("only_bump_buddies", "Draft", "Bump only partners"),
+            new Name("only_bump_buddies", "Draft", "Only bump a partner"),
             new Name("draftbuddy_max_bump_speed_mph", "Draft", "Partner bump speed"),
 
-            new Name("bump_force", "Bump", "Bump force"),
-            new Name("bump_aftershock", "Bump", "Bump aftershock"),
-            new Name("bump_aftershock_spin_f", "Bump", "Bump spin"),
-            new Name("crash_force", "Bump", "Crash force"),
-            new Name("crash_aftershock", "Bump", "Crash aftershock"),
+            new Name("bump_force", "Contact", "Bump strength"),
+            new Name("bump_aftershock", "Contact", "Bump aftershock"),
+            new Name("bump_aftershock_spin_f", "Contact", "Spin after a bump"),
+            new Name("crash_force", "Contact", "Crash strength"),
+            new Name("crash_aftershock", "Contact", "Crash aftershock"),
 
-            new Name("pit_speed", "Speed", "Pit speed"),
-            new Name("pitentry_max_speed_mph", "Speed", "Pit entry speed"),
-            new Name("pitexit_max_speed_mph", "Speed", "Pit exit speed"),
-            new Name("max_lookahead", "Speed", "Lookahead, far"),
-            new Name("min_lookahead", "Speed", "Lookahead, near"),
-            new Name("min_lookahead_m", "Speed", "Lookahead, meters"),
-            new Name("max_speedfactor_when_checking", "Speed", "Speed while checking"),
-            new Name("max_speedfactor_blendpits", "Speed", "Speed blending into pits"),
-            new Name("nearcar_speedf_at_min_curvature", "Speed", "Speed beside another car"),
-            new Name("tire_wear_speed_factor", "Speed", "Tire wear speed"),
-            new Name("tire_life_ghost", "Speed", "AI tire life"),
-            new Name("tire_life_player", "Speed", "Player tire life"),
-            new Name("tirewear_25_speed", "Speed", "Tire wear pace"),
-            new Name("tirewear_25_lap", "Speed", "Tire wear lap"),
-            new Name("magic_grip", "Speed", "Grip assist"),
-            new Name("curvature_skill_f", "Speed", "Cornering skill"),
-            new Name("curvature_min_skill_f", "Speed", "Cornering skill, minimum"),
-            new Name("wall_approach_lat_grip_f", "Speed", "Wall approach grip"),
+            new Name("max_lookahead", "Awareness", "Look ahead, far"),
+            new Name("min_lookahead", "Awareness", "Look ahead, near"),
+            new Name("min_lookahead_m", "Awareness", "Look ahead, distance"),
+            new Name("max_speedfactor_when_checking", "Awareness", "Speed while looking"),
+            new Name("nearcar_speedf_at_min_curvature", "Awareness", "Speed beside a car"),
+            new Name("magic_grip", "Grip", "Grip help"),
+            new Name("curvature_skill_f", "Cornering", "Cornering skill"),
+            new Name("curvature_min_skill_f", "Cornering", "Cornering skill, low end"),
+            new Name("wall_approach_lat_grip_f", "Grip", "Grip near the wall"),
 
-            new Name("pass_hys_min", "Passing", "Pass gap, minimum"),
-            new Name("pass_hys_max", "Passing", "Pass gap, maximum"),
-            new Name("pointless_pass_dist", "Passing", "Useless pass distance"),
-            new Name("moveout_factor", "Passing", "Move out"),
-            new Name("moveout_timer_f", "Passing", "Move out timer"),
+            new Name("pass_hys_min", "Passing", "Pass gap, close"),
+            new Name("pass_hys_max", "Passing", "Pass gap, far"),
+            new Name("pointless_pass_dist", "Passing", "Distance a pass stops being worth it"),
+            new Name("moveout_factor", "Passing", "Move aside"),
+            new Name("moveout_timer_f", "Passing", "Time before moving aside"),
             new Name("pushout_factor", "Passing", "Push out"),
             new Name("push_sensitivity", "Passing", "Push"),
             new Name("push_lat_sens", "Passing", "Side push"),
-            new Name("checks", "Passing", "Checks"),
+            new Name("checks", "Passing", "How often it checks the lane"),
             new Name("merge_t", "Passing", "Merge time"),
-            new Name("merge_dt", "Passing", "Merge step"),
-            new Name("passout_greenflag_fadein_duration", "Passing", "Green flag settle"),
-            new Name("yellow_moveout_f", "Passing", "Yellow move out"),
-            new Name("ym_restart_intercar", "Passing", "Restart gap"),
-            new Name("ym_restart_offset", "Passing", "Restart offset"),
-            new Name("enable_threewide_nothrottle", "Passing", "Three wide without throttle"),
+            new Name("passout_greenflag_fadein_duration", "Passing", "Settle time after green"),
+            new Name("yellow_moveout_f", "Passing", "Move aside under yellow"),
+            new Name("enable_threewide_nothrottle", "Passing", "Lift when three-wide"),
 
-            new Name("fastlane_factor", "Racing line", "Fast lane"),
-            new Name("fastlane_caution", "Racing line", "Fast lane on caution"),
-            new Name("highline_enabled", "Racing line", "High line"),
-            new Name("highline_skill_f", "Racing line", "High line skill"),
-            new Name("highline_wall_margin", "Racing line", "High line wall gap"),
-            new Name("highline_inhibited_after_greenflag_t", "Racing line", "High line delay after green"),
-            new Name("highline_decide_on_back_straight", "Racing line", "High line on the backstretch"),
-            new Name("force_lane1_entry", "Racing line", "Bottom lane at entry"),
-            new Name("force_lane1_exit", "Racing line", "Bottom lane at exit"),
-            new Name("leftwall", "Racing line", "Left wall margin"),
-            new Name("rightwall", "Racing line", "Right wall margin"),
-            new Name("prohibit_lane0_lon", "Racing line", "Bottom lane block"),
-            new Name("zone_margin_factor", "Racing line", "Lane margin"),
-            new Name("contact_extra_left_lanes", "Racing line", "Extra left lanes"),
-            new Name("leftman_never_forces", "Racing line", "Left car never forces"),
-            new Name("cl_desired_dist", "Racing line", "Preferred following distance"),
-            new Name("cl_forcible_min_dist", "Racing line", "Closest follow distance"),
-            new Name("cl_max_point_dist", "Racing line", "Furthest follow distance"),
+            new Name("fastlane_factor", "Line", "Prefer the fast lane"),
+            new Name("fastlane_caution", "Line", "Fast lane under caution"),
+            new Name("highline_enabled", "Line", "High line"),
+            new Name("highline_skill_f", "Line", "High line ability"),
+            new Name("highline_wall_margin", "Line", "High line gap to the wall"),
+            new Name("highline_inhibited_after_greenflag_t", "Line", "High line delay after green"),
+            new Name("highline_decide_on_back_straight", "Line", "Pick the high line on the backstretch"),
+            new Name("leftwall", "Line", "Left wall gap"),
+            new Name("rightwall", "Line", "Right wall gap"),
+            new Name("zone_margin_factor", "Line", "Lane margin"),
+            new Name("contact_extra_left_lanes", "Line", "Extra lanes on the left"),
+            new Name("leftman_never_forces", "Line", "Car on the left does not force"),
+
+            new Name("cl_desired_dist", "Following", "Preferred following distance"),
+            new Name("cl_forcible_min_dist", "Following", "Closest following distance"),
+            new Name("cl_max_point_dist", "Following", "Furthest following distance"),
+
+            new Name("ym_restart_intercar", "Restarts", "Restart spacing"),
+            new Name("ym_restart_offset", "Restarts", "Restart lineup offset"),
 
             new Name("can_pit", "Pit", "Can pit"),
-            new Name("fuel_per_lap", "Pit", "Fuel per lap"),
+            new Name("pit_speed", "Pit", "Pit road speed"),
+            new Name("pitentry_max_speed_mph", "Pit", "Pit entry speed"),
+            new Name("pitexit_max_speed_mph", "Pit", "Pit exit speed"),
+            new Name("max_speedfactor_blendpits", "Pit", "Speed entering the pits"),
+            new Name("fuel_per_lap", "Pit", "Fuel used per lap"),
             new Name("laps_per_tank", "Pit", "Laps per tank"),
-            new Name("pit_offset1", "Pit", "Pit offset"),
-            new Name("pit_offset2", "Pit", "Pit offset 2"),
-            new Name("pit_turnin", "Pit", "Pit turn-in"),
-            new Name("pit_side", "Pit", "Pit side"),
-            new Name("pit_side_2", "Pit", "Pit side 2"),
-            new Name("pit_over", "Pit", "Pit overshoot"),
-            new Name("pit_min_lookahead", "Pit", "Pit lookahead"),
-            new Name("pitfork_edge_time", "Pit", "Pit fork edge"),
-            new Name("pitfork_max_time", "Pit", "Pit fork time"),
-            new Name("pitlane_cnt1", "Pit", "Pit lane count"),
-            new Name("pitlane_cnt2", "Pit", "Pit lane count 2"),
-            new Name("pit_lane_width_f", "Pit", "Pit lane width"),
-            new Name("pit_lane_entry_lat", "Pit", "Pit lane entry"),
-            new Name("pit_lane_exit_lat", "Pit", "Pit lane exit"),
-            new Name("pit_lane1_max_nlon", "Pit", "Pit lane 1 length"),
-            new Name("pit_lane2_max_nlon", "Pit", "Pit lane 2 length"),
-            new Name("pit_lane3_max_nlon", "Pit", "Pit lane 3 length"),
-            new Name("postpits_dontmind_t", "Pit", "After pit, don't block"),
-            new Name("ontrack_pitting_lat_offset", "Pit", "On-track pit offset"),
-            new Name("enable_pitstall_departure_jets", "Pit", "Pit stall launch"),
-            new Name("pit_skill_variance", "Pit", "Pit skill spread"),
-            new Name("hog_f", "Pit", "Fuel saving"),
-            new Name("hog_yellow_factor", "Pit", "Fuel saving under yellow"),
-            new Name("hog_dnf_factor", "Pit", "Fuel saving, out of race")
+            new Name("postpits_dontmind_t", "Pit", "Don't block after a pit stop"),
+            new Name("enable_pitstall_departure_jets", "Pit", "Launch leaving the stall"),
+            new Name("pit_skill_variance", "Pit", "Pit stop consistency"),
+
+            new Name("tire_wear_speed_factor", "Tires", "How much wear changes pace"),
+            new Name("tire_life_ghost", "Tires", "AI tire life"),
+            new Name("tire_life_player", "Tires", "Player tire life"),
+            new Name("tirewear_25_speed", "Tires", "Worn-tire pace"),
+            new Name("tirewear_25_lap", "Tires", "Lap the worn pace starts"),
+
+            new Name("hog_f", "Fuel", "Fuel saving"),
+            new Name("hog_yellow_factor", "Fuel", "Fuel saving under yellow"),
+            new Name("hog_dnf_factor", "Fuel", "Fuel saving when out of the race")
         };
 
         public static List<AiTrackInfo> Read(string dllPath)
@@ -665,11 +667,39 @@ namespace NH5AiSkillAdjustment
 
         private static AiTrackField Skill(string label, Store store)
         {
+            var key = "skill";
+            var pair = label;
+            if (label.EndsWith(" minimum", StringComparison.Ordinal))
+            {
+                key = "skill-min";
+                pair = label.Substring(0, label.Length - " minimum".Length);
+            }
+            else if (label.EndsWith(" maximum", StringComparison.Ordinal))
+            {
+                key = "skill-max";
+                pair = label.Substring(0, label.Length - " maximum".Length);
+            }
+            else if (label.EndsWith(" lap time", StringComparison.Ordinal))
+            {
+                key = "skill-lap";
+                pair = label.Substring(0, label.Length - " lap time".Length);
+            }
+
+            var shown = label;
+            if (store.Shared)
+            {
+                shown += " (shared)";
+            }
+
             return new AiTrackField
             {
                 Group = "Skill",
-                Label = label,
+                Label = shown,
+                Key = key,
+                Pair = pair,
                 Value = store.Value,
+                Vanilla = store.Value,
+                Shared = store.Shared,
                 FileOffset = store.FileOffset,
                 WriteKind = 0
             };
@@ -783,11 +813,14 @@ namespace NH5AiSkillAdjustment
             {
                 Group = name.Group,
                 Label = label,
+                Key = name.Field,
                 Value = store.Value,
+                Vanilla = store.Value,
                 Boolean = store.Boolean,
                 BoolValue = on,
                 FileOffset = store.FileOffset,
-                WriteKind = store.WriteKind
+                WriteKind = store.WriteKind,
+                Shared = store.Shared
             };
         }
 
@@ -934,6 +967,205 @@ namespace NH5AiSkillAdjustment
             }
 
             throw new InvalidOperationException("Could not map AI code in this DLL.");
+        }
+
+        private static readonly TrackAdjust[] Adjusts =
+        {
+            A("Draft", "60%", "200%", TrackAdjustKind.Percent, "draft_influence"),
+            A("Draft length", "Shorter", "Longer", TrackAdjustKind.Scale, "min_draft_lon_carlen", "max_draft_lon_carlen"),
+            A("Draft width", "Narrower", "Wider", TrackAdjustKind.Scale, "min_draft_width_carwid", "max_draft_width_carwid"),
+            A("Draft speed window", "Narrower", "Wider", TrackAdjustKind.Range, "min_draft_lon_speed_mph", "max_draft_lon_speed_mph"),
+            A("Bumps", "Softer", "Harder", TrackAdjustKind.Scale, "bump_force", "bump_aftershock"),
+            A("Spin off a bump", "60%", "200%", TrackAdjustKind.Percent, "bump_aftershock_spin_f"),
+            A("Crashes", "Softer", "Harder", TrackAdjustKind.Scale, "crash_force", "crash_aftershock"),
+            A("Look ahead", "Shorter", "Longer", TrackAdjustKind.Scale, "max_lookahead", "min_lookahead", "min_lookahead_m"),
+            A("Speed while looking", "60%", "200%", TrackAdjustKind.Percent, "max_speedfactor_when_checking"),
+            A("Speed beside a car", "60%", "200%", TrackAdjustKind.Percent, "nearcar_speedf_at_min_curvature"),
+            A("Speed into the pits", "60%", "200%", TrackAdjustKind.Percent, "max_speedfactor_blendpits"),
+            A("Grip help", "60%", "200%", TrackAdjustKind.Percent, "magic_grip"),
+            A("Grip near the wall", "60%", "200%", TrackAdjustKind.Percent, "wall_approach_lat_grip_f"),
+            A("Cornering", "60%", "200%", TrackAdjustKind.Percent, "curvature_skill_f", "curvature_min_skill_f"),
+            A("Room to pass", "Tighter", "Wider", TrackAdjustKind.Range, "pass_hys_min", "pass_hys_max"),
+            A("Move aside", "60%", "200%", TrackAdjustKind.Percent, "moveout_factor"),
+            A("Push", "Softer", "Harder", TrackAdjustKind.Scale, "pushout_factor", "push_sensitivity", "push_lat_sens"),
+            A("Move aside under yellow", "60%", "200%", TrackAdjustKind.Percent, "yellow_moveout_f"),
+            A("Fast lane", "60%", "200%", TrackAdjustKind.Percent, "fastlane_factor"),
+            A("Fast lane under caution", "60%", "200%", TrackAdjustKind.Percent, "fastlane_caution"),
+            A("High line ability", "60%", "200%", TrackAdjustKind.Percent, "highline_skill_f"),
+            A("Wall gap", "Tighter", "Wider", TrackAdjustKind.Scale, "leftwall", "rightwall"),
+            A("Lane margin", "Tighter", "Wider", TrackAdjustKind.Scale, "zone_margin_factor"),
+            A("Following distance", "Closer", "Further", TrackAdjustKind.Scale, "cl_forcible_min_dist", "cl_desired_dist", "cl_max_point_dist"),
+            A("Pit stops", "More consistent", "Less consistent", TrackAdjustKind.Scale, "pit_skill_variance"),
+            A("Fuel saving", "60%", "200%", TrackAdjustKind.Percent, "hog_f", "hog_yellow_factor", "hog_dnf_factor")
+        };
+
+        private static readonly Dictionary<string, TrackAdjust> AdjustByKey = BuildAdjusts();
+
+        private static TrackAdjust A(string title, string left, string right, TrackAdjustKind kind, params string[] keys)
+        {
+            return new TrackAdjust { Title = title, Left = left, Right = right, Kind = kind, Keys = keys };
+        }
+
+        private static Dictionary<string, TrackAdjust> BuildAdjusts()
+        {
+            var map = new Dictionary<string, TrackAdjust>(StringComparer.Ordinal);
+            foreach (var adjust in Adjusts)
+            {
+                foreach (var key in adjust.Keys)
+                {
+                    map[key] = adjust;
+                }
+            }
+
+            return map;
+        }
+
+        public static TrackAdjust? AdjustFor(string key)
+        {
+            TrackAdjust adjust;
+            return AdjustByKey.TryGetValue(key, out adjust) ? adjust : null;
+        }
+
+        public static float Factor(int position)
+        {
+            var step = 1f + (Math.Abs(position) / 100f);
+            return position >= 0 ? step : 1f / step;
+        }
+
+        public static int ScalePosition(IReadOnlyList<AiTrackField> fields)
+        {
+            double strength = 0;
+            var count = 0;
+            foreach (var field in fields)
+            {
+                if (Math.Abs(field.Vanilla) < 0.0000001f)
+                {
+                    continue;
+                }
+
+                var ratio = field.Value / field.Vanilla;
+                double side;
+                if (ratio >= 1f)
+                {
+                    side = ratio - 1.0;
+                }
+                else if (ratio > 0.0000001f)
+                {
+                    side = -((1.0 / ratio) - 1.0);
+                }
+                else
+                {
+                    continue;
+                }
+
+                strength += side;
+                count++;
+            }
+
+            if (count == 0)
+            {
+                return 0;
+            }
+
+            var position = (int)Math.Round(strength / count * 100.0);
+            if (position < -100)
+            {
+                return -100;
+            }
+
+            if (position > 100)
+            {
+                return 100;
+            }
+
+            return position;
+        }
+
+        public static int RangePosition(float low, float high, float vanillaLow, float vanillaHigh)
+        {
+            var vanilla = Math.Abs(vanillaHigh - vanillaLow);
+            var current = Math.Abs(high - low);
+            if (vanilla < 0.0000001f)
+            {
+                return 0;
+            }
+
+            var ratio = current / vanilla;
+            double side = ratio >= 1f ? ratio - 1.0 : -((1.0 / Math.Max(ratio, 0.0000001f)) - 1.0);
+            var position = (int)Math.Round(side * 100.0);
+            if (position < -100)
+            {
+                return -100;
+            }
+
+            if (position > 100)
+            {
+                return 100;
+            }
+
+            return position;
+        }
+
+        public static int PercentPosition(IReadOnlyList<AiTrackField> fields)
+        {
+            double sum = 0;
+            var count = 0;
+            foreach (var field in fields)
+            {
+                if (Math.Abs(field.Vanilla) < 0.0000001f)
+                {
+                    continue;
+                }
+
+                sum += field.Value / field.Vanilla;
+                count++;
+            }
+
+            if (count == 0)
+            {
+                return 100;
+            }
+
+            var position = (int)Math.Round(sum / count * 100.0);
+            if (position < 60)
+            {
+                return 60;
+            }
+
+            if (position > 200)
+            {
+                return 200;
+            }
+
+            return position;
+        }
+
+        public static void ApplyPercent(IReadOnlyList<AiTrackField> fields, int position)
+        {
+            var factor = position / 100f;
+            foreach (var field in fields)
+            {
+                field.Value = field.Vanilla * factor;
+            }
+        }
+
+        public static void ApplyScale(IReadOnlyList<AiTrackField> fields, int position)
+        {
+            var factor = Factor(position);
+            foreach (var field in fields)
+            {
+                field.Value = field.Vanilla * factor;
+            }
+        }
+
+        public static void ApplyRange(AiTrackField low, AiTrackField high, int position)
+        {
+            var mid = (low.Vanilla + high.Vanilla) / 2f;
+            var half = Math.Abs(high.Vanilla - low.Vanilla) / 2f;
+            var span = half * Factor(position);
+            var first = low.Vanilla <= high.Vanilla;
+            low.Value = first ? mid - span : mid + span;
+            high.Value = first ? mid + span : mid - span;
         }
     }
 }
