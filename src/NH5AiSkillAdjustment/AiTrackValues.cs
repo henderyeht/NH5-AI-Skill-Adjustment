@@ -1167,5 +1167,201 @@ namespace NH5AiSkillAdjustment
             low.Value = first ? mid - span : mid + span;
             high.Value = first ? mid + span : mid - span;
         }
+
+        public static bool RevertOwn(byte[] bytes, string dllPath, string backupPath)
+        {
+            if (string.IsNullOrEmpty(backupPath) || !File.Exists(backupPath))
+            {
+                return false;
+            }
+
+            byte[] prior;
+            List<AiTrackInfo> tracks;
+            try
+            {
+                prior = File.ReadAllBytes(backupPath);
+                tracks = Read(dllPath);
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+
+            var changed = false;
+            foreach (var track in tracks)
+            {
+                var used = new HashSet<AiTrackField>();
+                foreach (var field in track.Fields)
+                {
+                    if (used.Contains(field))
+                    {
+                        continue;
+                    }
+
+                    if (field.Boolean || field.WriteKind != 0)
+                    {
+                        changed |= RevertCode(bytes, prior, field);
+                        used.Add(field);
+                        continue;
+                    }
+
+                    var adjust = AdjustFor(field.Key);
+                    if (adjust == null)
+                    {
+                        continue;
+                    }
+
+                    var members = new List<AiTrackField>();
+                    foreach (var other in track.Fields)
+                    {
+                        if (other.WriteKind != 0 || other.Boolean)
+                        {
+                            continue;
+                        }
+
+                        var keyHit = false;
+                        foreach (var key in adjust.Keys)
+                        {
+                            if (key == other.Key)
+                            {
+                                keyHit = true;
+                                break;
+                            }
+                        }
+
+                        if (keyHit)
+                        {
+                            members.Add(other);
+                        }
+                    }
+
+                    if (members.Count == 0)
+                    {
+                        members.Add(field);
+                    }
+
+                    foreach (var member in members)
+                    {
+                        used.Add(member);
+                    }
+
+                    if (!RoundTrip(adjust.Kind, members, prior))
+                    {
+                        continue;
+                    }
+
+                    foreach (var member in members)
+                    {
+                        if (member.FileOffset < 0 || member.FileOffset + 4 > prior.Length || member.FileOffset + 4 > bytes.Length)
+                        {
+                            continue;
+                        }
+
+                        var vanilla = BitConverter.ToSingle(prior, member.FileOffset);
+                        Array.Copy(BitConverter.GetBytes(vanilla), 0, bytes, member.FileOffset, 4);
+                        foreach (var extra in member.ExtraOffsets)
+                        {
+                            if (extra < 0 || extra + 4 > bytes.Length || extra + 4 > prior.Length)
+                            {
+                                continue;
+                            }
+
+                            if (Math.Abs(BitConverter.ToSingle(bytes, extra) - member.Value) < 0.0005f)
+                            {
+                                Array.Copy(BitConverter.GetBytes(BitConverter.ToSingle(prior, extra)), 0, bytes, extra, 4);
+                            }
+                        }
+
+                        changed = true;
+                    }
+                }
+            }
+
+            return changed;
+        }
+
+        private static bool RevertCode(byte[] live, byte[] prior, AiTrackField field)
+        {
+            var offset = field.FileOffset;
+            if (offset < 0 || offset >= live.Length || offset >= prior.Length || live[offset] == prior[offset])
+            {
+                return false;
+            }
+
+            if (field.WriteKind == 1)
+            {
+                if ((live[offset] != 0x16 && live[offset] != 0x17) || (prior[offset] != 0x16 && prior[offset] != 0x17))
+                {
+                    return false;
+                }
+            }
+            else if (field.WriteKind == 2)
+            {
+                if (live[offset] > 1 || prior[offset] > 1)
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                return false;
+            }
+
+            live[offset] = prior[offset];
+            return true;
+        }
+
+        private static bool RoundTrip(TrackAdjustKind kind, List<AiTrackField> members, byte[] prior)
+        {
+            var current = new float[members.Count];
+            for (var i = 0; i < members.Count; i++)
+            {
+                var field = members[i];
+                if (field.FileOffset < 0 || field.FileOffset + 4 > prior.Length)
+                {
+                    return false;
+                }
+
+                current[i] = field.Value;
+                field.Vanilla = BitConverter.ToSingle(prior, field.FileOffset);
+                if (Math.Abs(current[i] - field.Vanilla) < 0.0005f)
+                {
+                    return false;
+                }
+            }
+
+            if (kind == TrackAdjustKind.Percent)
+            {
+                var position = PercentPosition(members);
+                ApplyPercent(members, position);
+            }
+            else if (kind == TrackAdjustKind.Range && members.Count >= 2)
+            {
+                var position = RangePosition(members[0].Value, members[1].Value, members[0].Vanilla, members[1].Vanilla);
+                ApplyRange(members[0], members[1], position);
+            }
+            else
+            {
+                var position = ScalePosition(members);
+                ApplyScale(members, position);
+            }
+
+            var match = true;
+            for (var i = 0; i < members.Count; i++)
+            {
+                if (Math.Abs(members[i].Value - current[i]) > 0.0005f)
+                {
+                    match = false;
+                }
+
+                members[i].Value = current[i];
+            }
+
+            return match;
+        }
     }
 }
