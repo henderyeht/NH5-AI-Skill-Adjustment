@@ -54,40 +54,44 @@ namespace NH5AiSkillAdjustment
             var track = basic
                 ? new Rectangle(22, Height / 2 - 6, Math.Max(1, Width - 44), 12)
                 : new Rectangle(8, string.IsNullOrEmpty(CenterLabel) ? Height / 2 - 4 : Height - 18, Math.Max(1, Width - 16), 8);
-            var trackColor = Theme.Track;
-            if (!basic && ColorFromNeutral)
-            {
-                if (Value > Neutral)
-                {
-                    trackColor = Theme.Blue;
-                }
-                else if (Value < Neutral)
-                {
-                    trackColor = Theme.Red;
-                }
-            }
-
-            using (var trackBrush = new SolidBrush(trackColor))
+            using (var trackBrush = new SolidBrush(Theme.Track))
             {
                 g.FillRectangle(trackBrush, track);
             }
 
             var t = Maximum == Minimum ? 0f : (float)(Value - Minimum) / (Maximum - Minimum);
             var thumbX = track.X + (int)(track.Width * t);
-            if (basic || !ColorFromNeutral)
+            var anchor = track.X;
+            var fillColor = Theme.Blue;
+            var paintFill = true;
+            if (!basic && ColorFromNeutral && Maximum != Minimum)
             {
-                using (var fill = new SolidBrush(Theme.Blue))
+                var nt = (float)(Neutral - Minimum) / (Maximum - Minimum);
+                anchor = track.X + (int)(track.Width * nt);
+                if (Value > Neutral)
                 {
-                    if (FromCenter)
-                    {
-                        var mid = track.X + (track.Width / 2);
-                        var left = Math.Min(mid, thumbX);
-                        g.FillRectangle(fill, left, track.Y, Math.Abs(thumbX - mid), track.Height);
-                    }
-                    else
-                    {
-                        g.FillRectangle(fill, track.X, track.Y, Math.Max(0, thumbX - track.X), track.Height);
-                    }
+                    fillColor = Theme.Blue;
+                }
+                else if (Value < Neutral)
+                {
+                    fillColor = Theme.Red;
+                }
+                else
+                {
+                    paintFill = false;
+                }
+            }
+            else if (FromCenter)
+            {
+                anchor = track.X + (track.Width / 2);
+            }
+
+            if (paintFill)
+            {
+                using (var fill = new SolidBrush(fillColor))
+                {
+                    var left = Math.Min(anchor, thumbX);
+                    g.FillRectangle(fill, left, track.Y, Math.Abs(thumbX - anchor), track.Height);
                 }
             }
             if (!string.IsNullOrEmpty(CenterLabel))
