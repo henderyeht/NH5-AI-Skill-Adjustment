@@ -159,17 +159,90 @@ namespace NH5AiSkillAdjustment
                 throw new InvalidOperationException("Could not find Assembly-CSharp.dll. Use Locate game.");
             }
 
-            var target = Resolve(File.ReadAllBytes(_dllPath));
-            var stock = File.ReadAllBytes(EnsureVanillaBackup());
-            WriteDll(stock, alreadyBackedUp: true);
+            var live = File.ReadAllBytes(_dllPath);
+            var targetKind = "patched";
+            try
+            {
+                var target = Resolve(live);
+                targetKind = target.Kind == "stock" && Math.Abs(target.Extra - 1f) < 0.0001f ? "stock" : "patched";
+            }
+            catch (InvalidOperationException)
+            {
+                targetKind = "patched";
+            }
+
+            var changed = RevertSkill(live);
+            if (AiSettingValues.RevertOwn(live, _dllPath))
+            {
+                changed = true;
+            }
+
+            if (AiTrackValues.RevertOwn(live, _dllPath, StockBackupPath()))
+            {
+                changed = true;
+            }
+
+            if (changed)
+            {
+                WriteDll(live, alreadyBackedUp: true);
+            }
+
             if (File.Exists(_statePath))
             {
                 File.Delete(_statePath);
             }
 
-            return target.Kind == "stock" && Math.Abs(target.Extra - 1f) < 0.0001f
-                ? "already-stock"
-                : "restored";
+            return !changed && targetKind == "stock" ? "already-stock" : "restored";
+        }
+
+        // Skill sites only. The rest of the DLL, including other utilities, stays.
+        private static bool RevertSkill(byte[] bytes)
+        {
+            Sites sites;
+            try
+            {
+                sites = LocateSites(bytes);
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+
+            if (sites.EarlyRetOffset < 0 || sites.EarlyRetOffset >= bytes.Length)
+            {
+                return false;
+            }
+
+            var early = bytes[sites.EarlyRetOffset];
+            if (early != 0x00 && early != 0x2A)
+            {
+                return false;
+            }
+
+            var extra = ReadExtra(bytes, sites);
+            if (extra < 0.5f || extra > 2.5f)
+            {
+                return false;
+            }
+
+            var forced = GetForcedRatingAt(bytes, sites.RatingOffset).HasValue;
+            var before = (byte[])bytes.Clone();
+            ApplyTable(bytes, sites, 1f, StockMaxAdjusted);
+            RestoreRatingToStock(bytes);
+            if (forced)
+            {
+                RestoreRatingAt(bytes, sites.RatingOffset, sites.RatingOriginal);
+            }
+
+            for (var i = 0; i < bytes.Length; i++)
+            {
+                if (bytes[i] != before[i])
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private PatchTarget Resolve(byte[] bytes)
@@ -471,19 +544,25 @@ namespace NH5AiSkillAdjustment
             Directory.CreateDirectory(Path.GetDirectoryName(path) ?? path);
             if (File.Exists(path))
             {
-                var saved = File.ReadAllBytes(path);
-                if (IsVanilla(saved))
-                {
-                    return path;
-                }
-
-                MakeSkillVanilla(saved);
-                File.WriteAllBytes(path, saved);
                 return path;
             }
 
             var created = File.ReadAllBytes(_dllPath);
-            MakeSkillVanilla(created);
+            try
+            {
+                var sites = LocateSites(created);
+                var early = sites.EarlyRetOffset >= 0 && sites.EarlyRetOffset < created.Length
+                    ? created[sites.EarlyRetOffset]
+                    : (byte)0;
+                if (early == 0x00 || early == 0x2A)
+                {
+                    MakeSkillVanilla(created);
+                }
+            }
+            catch (InvalidOperationException)
+            {
+            }
+
             File.WriteAllBytes(path, created);
             return path;
         }
