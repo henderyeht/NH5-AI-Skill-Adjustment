@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
+using System.IO;
 using System.Windows.Forms;
 
 namespace NH5AiSkillAdjustment
@@ -102,6 +103,7 @@ namespace NH5AiSkillAdjustment
             try
             {
                 _tracks.AddRange(AiTrackValues.Read(dll ?? ""));
+                StampVanilla(dll ?? "");
                 foreach (var track in _tracks)
                 {
                     _track.Items.Add(track.Name);
@@ -163,6 +165,7 @@ namespace NH5AiSkillAdjustment
             _body.Controls.Clear();
             _edits.Clear();
             _settingEdits.Clear();
+            _trackSlides.Clear();
             if (_track.SelectedIndex < 0 || _track.SelectedIndex >= _tracks.Count)
             {
                 return;
@@ -190,8 +193,8 @@ namespace NH5AiSkillAdjustment
             _body.SetBounds(0, bodyTop, viewW, viewH);
             const int rowH = 26;
             const int boxW = 108;
-            const int maxCols = 5;
-            const int minCol = 340;
+            const int baseCol = 480;
+            const int maxCol = 600;
             var blocks = new List<(string title, List<AiTrackField> fields)>();
             foreach (var field in fields)
             {
@@ -203,14 +206,12 @@ namespace NH5AiSkillAdjustment
                 blocks[blocks.Count - 1].fields.Add(field);
             }
 
-            var top = AddSettingSliders(viewW);
+            blocks.Insert(0, ("\u0001", new List<AiTrackField>()));
+            var top = 0;
             var scrollW = SystemInformation.VerticalScrollBarWidth;
-            var cols = Math.Min(maxCols, Math.Max(1, blocks.Count));
-            var fit = Math.Max(1, (viewW - scrollW) / minCol);
-            if (fit < cols)
-            {
-                cols = fit;
-            }
+            var room = Math.Max(baseCol, viewW - scrollW);
+            var cols = Math.Min(blocks.Count, Math.Max(1, room / baseCol));
+            var colW = cols <= 1 ? room : Math.Min(maxCol, Math.Max(baseCol, room / cols));
 
             var placed = new List<List<(string title, List<AiTrackField> fields)>>();
             var heights = new int[cols];
@@ -222,14 +223,14 @@ namespace NH5AiSkillAdjustment
             var total = 0;
             foreach (var block in blocks)
             {
-                total += rowH + (block.fields.Count * rowH);
+                total += BlockHeight(block, skillScale, rowH);
             }
 
             var target = Math.Max(rowH, total / cols);
             var col = 0;
             foreach (var block in blocks)
             {
-                var need = rowH + (block.fields.Count * rowH);
+                var need = BlockHeight(block, skillScale, rowH);
                 if (col < cols - 1 && heights[col] > 0 && heights[col] + need > target)
                 {
                     col++;
@@ -259,8 +260,6 @@ namespace NH5AiSkillAdjustment
                 used = 1;
             }
 
-            var usable = contentH > viewH ? viewW - scrollW : viewW;
-            var colW = Math.Max(minCol, usable / used);
             var labelW = Math.Max(80, colW - boxW - 28);
             var shown = 0;
             for (var c = 0; c < placed.Count; c++)
@@ -275,6 +274,12 @@ namespace NH5AiSkillAdjustment
                 var y = top;
                 foreach (var block in placed[c])
                 {
+                    if (block.title == "\u0001")
+                    {
+                        y = AddSettingSliders(x, y, colW);
+                        continue;
+                    }
+
                     _body.Controls.Add(new Label
                     {
                         Text = block.title,
@@ -285,16 +290,20 @@ namespace NH5AiSkillAdjustment
                         Size = new Size(colW - 16, 20)
                     });
                     y += rowH;
-                    foreach (var field in block.fields)
+                    foreach (var row in Rows(block.fields, skillScale))
                     {
-                        var scaled = Math.Abs(skillScale - 1f) > 0.0005f
-                            && field.Group == "Skill"
-                            && field.Label.IndexOf("lap time", StringComparison.OrdinalIgnoreCase) < 0;
-                        field.DisplayScale = scaled ? skillScale : 1f;
+                        if (row.Adjust != null)
+                        {
+                            y = AddTrackSlider(row, x, y, colW);
+                            continue;
+                        }
+
+                        var field = row.Field;
+                        field.DisplayScale = 1f;
                         _body.Controls.Add(new Label
                         {
                             Text = field.Label,
-                            ForeColor = scaled ? Theme.Red : Theme.White,
+                            ForeColor = Theme.White,
                             BackColor = Theme.Asphalt,
                             AutoEllipsis = true,
                             Location = new Point(x + 8, y + 3),
@@ -318,27 +327,26 @@ namespace NH5AiSkillAdjustment
                         {
                             editor = new WheelTextBox
                             {
-                                Text = (field.Value * field.DisplayScale).ToString("0.####", CultureInfo.InvariantCulture),
+                                Text = field.Value.ToString("0.####", CultureInfo.InvariantCulture),
                                 Location = new Point(x + 16 + labelW, y),
-                                Size = new Size(boxW, 22),
-                                ForeColor = scaled ? Theme.Red : Color.Black
+                                Size = new Size(boxW, 22)
                             };
                         }
 
-            editor.TextChanged += (_, __) => _trackPending = true;
-            if (editor is ComboBox trackPick)
-            {
-                trackPick.SelectedIndexChanged += (_, __) => _trackPending = true;
-            }
+                        editor.TextChanged += (_, __) => _trackPending = true;
+                        if (editor is ComboBox trackPick)
+                        {
+                            trackPick.SelectedIndexChanged += (_, __) => _trackPending = true;
+                        }
 
-            _body.Controls.Add(editor);
-            _edits.Add((editor, field));
+                        _body.Controls.Add(editor);
+                        _edits.Add((editor, field));
                         y += rowH;
                     }
                 }
             }
 
-            _body.AutoScrollMinSize = new Size(Math.Max(used * colW, usable), top + contentH + 12);
+            _body.AutoScrollMinSize = new Size(used * colW, top + contentH + 12);
             _shownTrack = _track.SelectedIndex;
             _shownView = new Size(viewW, viewH);
             _settingsDirty = false;
@@ -351,10 +359,45 @@ namespace NH5AiSkillAdjustment
             public List<AiSettingValue> Fields = null!;
         }
 
+        private sealed class TrackRow
+        {
+            public AiTrackField Field = null!;
+            public TrackAdjust Adjust = null!;
+            public List<AiTrackField> Members = new List<AiTrackField>();
+            public int Position;
+            public bool Red;
+            public int Height = 26;
+        }
+
+        private sealed class TrackSlide
+        {
+            public SkillSlider Slider = null!;
+            public int Shown;
+            public TrackAdjustKind Kind;
+            public List<AiTrackField> Members = new List<AiTrackField>();
+        }
+
         private List<AiSettingValue> _settingFields = new List<AiSettingValue>();
         private readonly List<SettingEdit> _settingEdits = new List<SettingEdit>();
+        private readonly List<TrackSlide> _trackSlides = new List<TrackSlide>();
 
-        private int AddSettingSliders(int viewW)
+        private int BlockHeight((string title, List<AiTrackField> fields) block, float skillScale, int rowH)
+        {
+            if (block.title == "\u0001")
+            {
+                return SettingGroups().Count * 58;
+            }
+
+            var height = rowH;
+            foreach (var row in Rows(block.fields, skillScale))
+            {
+                height += row.Height;
+            }
+
+            return height;
+        }
+
+        private List<List<AiSettingValue>> SettingGroups()
         {
             var groups = new List<List<AiSettingValue>>();
             foreach (var field in _settingFields)
@@ -367,52 +410,252 @@ namespace NH5AiSkillAdjustment
                 groups[groups.Count - 1].Add(field);
             }
 
-            const int rowH = 36;
-            var y = 0;
-            foreach (var group in groups)
+            return groups;
+        }
+
+        private static string SharedTitle(string title, params AiTrackField?[] members)
+        {
+            foreach (var member in members)
             {
-                var percent = AiSettingValues.PercentFor(group);
-                var title = group[0].Group == "Recovery Skill" ? "Recovery" : group[0].Group;
-                _body.Controls.Add(new Label
+                if (member != null && member.Shared)
                 {
-                    Text = title,
-                    ForeColor = Theme.Yellow,
-                    BackColor = Theme.Asphalt,
-                    Font = new Font("Segoe UI", 10f, FontStyle.Bold),
-                    Location = new Point(8, y + 6),
-                    Size = new Size(200, 22)
-                });
-                var readout = new Label
-                {
-                    Text = percent + "%",
-                    ForeColor = Theme.Yellow,
-                    BackColor = Theme.Asphalt,
-                    Font = new Font("Segoe UI", 10f, FontStyle.Bold),
-                    TextAlign = ContentAlignment.MiddleRight,
-                    Location = new Point(viewW - 78, y + 6),
-                    Size = new Size(64, 22)
-                };
-                _body.Controls.Add(readout);
-                var slider = new SkillSlider
-                {
-                    Minimum = AiSettingValues.MinPercent,
-                    Maximum = AiSettingValues.MaxPercent,
-                    Value = percent,
-                    Location = new Point(214, y + 2),
-                    Size = new Size(Math.Max(120, viewW - 300), 32),
-                    BackColor = Theme.Asphalt
-                };
-                slider.ValueChanged += (_, __) =>
-                {
-                    readout.Text = slider.Value + "%";
-                    _settingsDirty = true;
-                };
-                _body.Controls.Add(slider);
-                _settingEdits.Add(new SettingEdit { Slider = slider, Shown = percent, Fields = group });
-                y += rowH;
+                    return title + " (shared)";
+                }
             }
 
-            return groups.Count == 0 ? 0 : y + 8;
+            return title;
+        }
+
+        private int AddSettingSliders(int x, int y, int colW)
+        {
+            foreach (var group in SettingGroups())
+            {
+                string title;
+                string left;
+                string right;
+                AiSettingValues.Ends(group[0].Group, out title, out left, out right);
+                var position = AiSettingValues.PositionFor(group);
+                SkillSlider slider;
+                y = AddLabeledSlider(title, left, right, false, false, position, -100, 100, x, y, colW, () => _settingsDirty = true, out slider);
+                _settingEdits.Add(new SettingEdit { Slider = slider, Shown = position, Fields = group });
+            }
+
+            return y;
+        }
+
+        private static List<TrackRow> Rows(List<AiTrackField> fields, float skillScale)
+        {
+            var rows = new List<TrackRow>();
+            var used = new HashSet<string>(StringComparer.Ordinal);
+            var red = Math.Abs(skillScale - 1f) > 0.0005f;
+            foreach (var field in fields)
+            {
+                if (field.Key == "skill-max" || used.Contains(field.Key))
+                {
+                    continue;
+                }
+
+                if (field.Key == "skill-min")
+                {
+                    AiTrackField? high = null;
+                    foreach (var other in fields)
+                    {
+                        if (other.Key == "skill-max" && other.Pair == field.Pair)
+                        {
+                            high = other;
+                            break;
+                        }
+                    }
+
+                    if (high != null)
+                    {
+                        rows.Add(new TrackRow
+                        {
+                            Adjust = new TrackAdjust
+                            {
+                                Title = SharedTitle(field.Pair + " skill range", field, high),
+                                Left = "Tighter",
+                                Right = "Wider",
+                                Kind = TrackAdjustKind.Range,
+                                Keys = new[] { "skill-min", "skill-max" }
+                            },
+                            Members = new List<AiTrackField> { field, high },
+                            Position = AiTrackValues.RangePosition(field.Value, high.Value, field.Vanilla, high.Vanilla),
+                            Red = red,
+                            Height = 58
+                        });
+                        continue;
+                    }
+                }
+
+                var adjust = AiTrackValues.AdjustFor(field.Key);
+                if (adjust != null)
+                {
+                    var members = new List<AiTrackField>();
+                    foreach (var other in fields)
+                    {
+                        if (Array.IndexOf(adjust.Keys, other.Key) >= 0)
+                        {
+                            members.Add(other);
+                            used.Add(other.Key);
+                        }
+                    }
+
+                    var position = adjust.Kind == TrackAdjustKind.Range && members.Count >= 2
+                        ? AiTrackValues.RangePosition(members[0].Value, members[1].Value, members[0].Vanilla, members[1].Vanilla)
+                        : adjust.Kind == TrackAdjustKind.Percent
+                            ? AiTrackValues.PercentPosition(members)
+                            : AiTrackValues.ScalePosition(members);
+                    rows.Add(new TrackRow
+                    {
+                        Adjust = adjust,
+                        Members = members,
+                        Position = position,
+                        Height = 58
+                    });
+                    continue;
+                }
+
+                rows.Add(new TrackRow { Field = field, Height = 26 });
+            }
+
+            return rows;
+        }
+
+        private int AddTrackSlider(TrackRow row, int x, int y, int colW)
+        {
+            var adjust = row.Adjust;
+            var percent = adjust.Kind == TrackAdjustKind.Percent;
+            SkillSlider slider;
+            y = AddLabeledSlider(
+                SharedTitle(adjust.Title, row.Members.ToArray()),
+                adjust.Left,
+                adjust.Right,
+                percent,
+                row.Red,
+                row.Position,
+                percent ? 60 : -100,
+                percent ? 200 : 100,
+                x,
+                y,
+                colW,
+                () => _trackPending = true,
+                out slider);
+            _trackSlides.Add(new TrackSlide
+            {
+                Slider = slider,
+                Shown = row.Position,
+                Kind = adjust.Kind,
+                Members = row.Members
+            });
+            return y;
+        }
+
+        private int AddLabeledSlider(string title, string left, string right, bool percent, bool red, int position, int minimum, int maximum, int x, int y, int colW, Action onChange, out SkillSlider slider)
+        {
+            const int edge = 140;
+            _body.Controls.Add(new Label
+            {
+                Text = title,
+                ForeColor = red ? Theme.Red : Theme.Yellow,
+                BackColor = Theme.Asphalt,
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                AutoEllipsis = true,
+                Location = new Point(x + 8, y + 1),
+                Size = new Size(colW - (percent ? 72 : 16), 16)
+            });
+            Label? readout = null;
+            if (percent)
+            {
+                readout = new Label
+                {
+                    Text = position + "%",
+                    ForeColor = red ? Theme.Red : Theme.Yellow,
+                    BackColor = Theme.Asphalt,
+                    Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                    TextAlign = ContentAlignment.MiddleRight,
+                    Location = new Point(x + colW - 64, y + 1),
+                    Size = new Size(52, 16)
+                };
+                _body.Controls.Add(readout);
+            }
+
+            _body.Controls.Add(new Label
+            {
+                Text = left,
+                ForeColor = Theme.White,
+                BackColor = Theme.Asphalt,
+                AutoEllipsis = true,
+                Location = new Point(x + 8, y + 28),
+                Size = new Size(edge - 8, 20)
+            });
+            _body.Controls.Add(new Label
+            {
+                Text = right,
+                ForeColor = Theme.White,
+                BackColor = Theme.Asphalt,
+                TextAlign = ContentAlignment.MiddleRight,
+                AutoEllipsis = true,
+                Location = new Point(x + colW - edge, y + 28),
+                Size = new Size(edge - 8, 20)
+            });
+            slider = new SkillSlider
+            {
+                ThumbWidth = 17,
+                ColorFromNeutral = true,
+                Neutral = percent ? 100 : 0,
+                FromCenter = !percent,
+                CenterLabel = percent ? "" : "Vanilla",
+                Minimum = minimum,
+                Maximum = maximum,
+                Value = position,
+                Location = new Point(x + edge, y + 16),
+                Size = new Size(Math.Max(40, colW - (edge * 2)), 40),
+                BackColor = Theme.Asphalt
+            };
+            var box = readout;
+            var changed = onChange;
+            var knob = slider;
+            knob.ValueChanged += (_, __) =>
+            {
+                if (box != null)
+                {
+                    box.Text = knob.Value + "%";
+                }
+
+                changed();
+            };
+            _body.Controls.Add(slider);
+            return y + 58;
+        }
+
+        private void StampVanilla(string dll)
+        {
+            var folder = Path.GetDirectoryName(dll);
+            if (string.IsNullOrEmpty(folder))
+            {
+                return;
+            }
+
+            var bak = Path.Combine(folder, Path.GetFileName(dll) + ".nh5ai-stock.bak");
+            if (!File.Exists(bak))
+            {
+                return;
+            }
+
+            var bytes = File.ReadAllBytes(bak);
+            foreach (var track in _tracks)
+            {
+                foreach (var field in track.Fields)
+                {
+                    if (field.FileOffset < 0 || field.FileOffset + 4 > bytes.Length)
+                    {
+                        continue;
+                    }
+
+                    field.Vanilla = BitConverter.ToSingle(bytes, field.FileOffset);
+                }
+            }
         }
 
         private void LoadSettings(string? dll)
@@ -449,12 +692,8 @@ namespace NH5AiSkillAdjustment
                     continue;
                 }
 
-                var scale = edit.Slider.Value / 100f;
-                foreach (var field in edit.Fields)
-                {
-                    field.Value = field.Vanilla * scale;
-                    changed.Add(field);
-                }
+                AiSettingValues.Apply(edit.Fields, edit.Slider.Value);
+                changed.AddRange(edit.Fields);
 
                 edit.Shown = edit.Slider.Value;
             }
@@ -498,6 +737,30 @@ namespace NH5AiSkillAdjustment
             }
 
             var changed = new List<AiTrackField>();
+            foreach (var slide in _trackSlides)
+            {
+                if (slide.Slider.Value == slide.Shown)
+                {
+                    continue;
+                }
+
+                if (slide.Kind == TrackAdjustKind.Percent)
+                {
+                    AiTrackValues.ApplyPercent(slide.Members, slide.Slider.Value);
+                }
+                else if (slide.Kind == TrackAdjustKind.Range && slide.Members.Count >= 2)
+                {
+                    AiTrackValues.ApplyRange(slide.Members[0], slide.Members[1], slide.Slider.Value);
+                }
+                else
+                {
+                    AiTrackValues.ApplyScale(slide.Members, slide.Slider.Value);
+                }
+
+                changed.AddRange(slide.Members);
+                slide.Shown = slide.Slider.Value;
+            }
+
             foreach (var edit in _edits)
             {
                 if (edit.field.Boolean)
