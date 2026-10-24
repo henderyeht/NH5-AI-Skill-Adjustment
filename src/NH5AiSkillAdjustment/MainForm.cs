@@ -318,9 +318,8 @@ namespace NH5AiSkillAdjustment
             {
                 FormBorderStyle = FormBorderStyle.Sizable;
                 MaximizeBox = true;
-                var area = Screen.FromControl(this).WorkingArea;
-                MinimumSize = new Size(900, 640);
-                ClientSize = new Size(Math.Max(1100, area.Width - 48), Math.Max(760, area.Height - 64));
+                MinimumSize = new Size(840, 560);
+                ClientSize = new Size(900, 700);
 
                 var dll = string.IsNullOrWhiteSpace(_managedDir) ? null : System.IO.Path.Combine(_managedDir, "Assembly-CSharp.dll");
                 _advanced.LoadFrom(dll);
