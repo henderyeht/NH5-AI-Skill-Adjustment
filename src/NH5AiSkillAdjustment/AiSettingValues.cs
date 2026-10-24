@@ -23,17 +23,17 @@ namespace NH5AiSkillAdjustment
     {
         private static readonly (string Group, string Label, int Order, int Side, bool Shrinks)[] Names =
         {
-            ("Stability", "Less stable, bump", 2, -1, true),
-            ("Stability", "Less stable, aftershock", 3, -1, false),
+            ("Stability", "Less stable, bump", 2, -1, false),
+            ("Stability", "Less stable, aftershock", 3, -1, true),
             ("Stability", "More stable, bump", 0, 1, false),
             ("Stability", "More stable, aftershock", 1, 1, true),
-            ("Recovery Skill", "Slower", 6, -1, false),
-            ("Recovery Skill", "Normal", 5, 0, false),
+            ("Recovery Skill", "Slower", 6, -1, true),
+            ("Recovery Skill", "Normal", 5, 0, true),
             ("Recovery Skill", "Faster", 4, 1, true),
-            ("Starting Spread", "Compressed", 8, -1, true),
+            ("Starting Spread", "Compressed", 8, -1, false),
             ("Starting Spread", "Expanded", 7, 1, false),
             ("Mechanical Failures", "Off", 9, 0, false),
-            ("Mechanical Failures", "Fewer", 10, -1, false),
+            ("Mechanical Failures", "Fewer", 10, -1, true),
             ("Mechanical Failures", "More", 11, 1, true)
         };
 
@@ -88,63 +88,57 @@ namespace NH5AiSkillAdjustment
 
         public static int PositionFor(IReadOnlyList<AiSettingValue> fields)
         {
-            double left = 0;
-            double right = 0;
-            var leftCount = 0;
-            var rightCount = 0;
+            double sum = 0;
+            var count = 0;
             foreach (var field in fields)
             {
-                if (field.Side == 0 || Math.Abs(field.Vanilla) < 0.0000001f)
+                if (field.Vanilla <= 0.0000001f)
                 {
                     continue;
                 }
 
                 var ratio = field.Value / field.Vanilla;
-                double strength;
+                if (ratio <= 0.0000001)
+                {
+                    continue;
+                }
+
+                double signed;
                 if (field.Shrinks)
                 {
-                    strength = ratio > 0.0000001f && ratio < 1f ? (1.0 / ratio) - 1.0 : 0;
+                    signed = ratio < 1.0 ? (1.0 / ratio) - 1.0 : -(ratio - 1.0);
                 }
                 else
                 {
-                    strength = ratio > 1f ? ratio - 1.0 : 0;
+                    signed = ratio > 1.0 ? ratio - 1.0 : -((1.0 / ratio) - 1.0);
                 }
 
-                if (strength < 0)
+                if (signed > 1)
                 {
-                    strength = 0;
+                    signed = 1;
                 }
 
-                if (strength > 1)
+                if (signed < -1)
                 {
-                    strength = 1;
+                    signed = -1;
                 }
 
-                if (field.Side < 0)
-                {
-                    left += strength;
-                    leftCount++;
-                }
-                else
-                {
-                    right += strength;
-                    rightCount++;
-                }
+                sum += signed;
+                count++;
             }
 
-            left = leftCount == 0 ? 0 : left / leftCount;
-            right = rightCount == 0 ? 0 : right / rightCount;
-            if (left < 0.02 && right < 0.02)
+            if (count == 0)
             {
                 return 0;
             }
 
-            if (right >= left)
+            var average = sum / count;
+            if (Math.Abs(average) < 0.02)
             {
-                return (int)Math.Round(right * 100.0);
+                return 0;
             }
 
-            return -(int)Math.Round(left * 100.0);
+            return (int)Math.Round(average * 100.0);
         }
 
         public static void Apply(IReadOnlyList<AiSettingValue> fields, int position)
@@ -152,14 +146,14 @@ namespace NH5AiSkillAdjustment
             var factor = 1f + (Math.Abs(position) / 100f);
             foreach (var field in fields)
             {
-                var idle = position == 0 || field.Side == 0 || (position > 0 && field.Side < 0) || (position < 0 && field.Side > 0);
-                if (idle)
+                if (field.Vanilla <= 0.0000001f || position == 0)
                 {
                     field.Value = field.Vanilla;
                     continue;
                 }
 
-                field.Value = field.Shrinks ? field.Vanilla / factor : field.Vanilla * factor;
+                var grow = position > 0 ? !field.Shrinks : field.Shrinks;
+                field.Value = grow ? field.Vanilla * factor : field.Vanilla / factor;
             }
         }
 
@@ -308,7 +302,7 @@ namespace NH5AiSkillAdjustment
 
         private static bool SettingOwned(AiSettingValue field)
         {
-            if (field.Side == 0 || Math.Abs(field.Vanilla) < 0.0000001f)
+            if (field.Vanilla <= 0.0000001f)
             {
                 return false;
             }
@@ -319,26 +313,12 @@ namespace NH5AiSkillAdjustment
             }
 
             var ratio = field.Value / field.Vanilla;
-            float factor;
-            if (field.Shrinks)
+            if (ratio <= 0f)
             {
-                if (ratio <= 0f || ratio > 1f)
-                {
-                    return false;
-                }
-
-                factor = field.Vanilla / field.Value;
-            }
-            else
-            {
-                if (ratio < 1f)
-                {
-                    return false;
-                }
-
-                factor = ratio;
+                return false;
             }
 
+            var factor = ratio < 1f ? 1f / ratio : ratio;
             if (factor < 0.999f || factor > 2.001f)
             {
                 return false;
