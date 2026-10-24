@@ -192,9 +192,8 @@ namespace NH5AiSkillAdjustment
             _body.AutoScroll = true;
             _body.SetBounds(0, bodyTop, viewW, viewH);
             const int rowH = 26;
-            const int boxW = 108;
-            const int baseCol = 480;
-            const int maxCol = 600;
+            const int boxW = 96;
+            const int colW = 400;
             var blocks = new List<(string title, List<AiTrackField> fields)>();
             foreach (var field in fields)
             {
@@ -209,9 +208,8 @@ namespace NH5AiSkillAdjustment
             blocks.Insert(0, ("\u0001", new List<AiTrackField>()));
             var top = 0;
             var scrollW = SystemInformation.VerticalScrollBarWidth;
-            var room = Math.Max(baseCol, viewW - scrollW);
-            var cols = Math.Min(blocks.Count, Math.Max(1, room / baseCol));
-            var colW = cols <= 1 ? room : Math.Min(maxCol, Math.Max(baseCol, room / cols));
+            var room = Math.Max(colW, viewW - scrollW);
+            var cols = Math.Min(blocks.Count, Math.Max(1, room / colW));
 
             var placed = new List<List<(string title, List<AiTrackField> fields)>>();
             var heights = new int[cols];
@@ -260,7 +258,7 @@ namespace NH5AiSkillAdjustment
                 used = 1;
             }
 
-            var labelW = Math.Max(80, colW - boxW - 28);
+            var labelFlags = TextFormatFlags.NoPadding | TextFormatFlags.SingleLine;
             var shown = 0;
             for (var c = 0; c < placed.Count; c++)
             {
@@ -300,6 +298,8 @@ namespace NH5AiSkillAdjustment
 
                         var field = row.Field;
                         field.DisplayScale = 1f;
+                        var textW = TextRenderer.MeasureText(field.Label, Font, new Size(int.MaxValue, int.MaxValue), labelFlags).Width + 2;
+                        var labelW = Math.Min(textW, Math.Max(72, colW - boxW - 22));
                         _body.Controls.Add(new Label
                         {
                             Text = field.Label,
@@ -310,12 +310,13 @@ namespace NH5AiSkillAdjustment
                             Size = new Size(labelW, 20)
                         });
                         Control editor;
+                        var editorX = x + 8 + labelW + 6;
                         if (field.Boolean)
                         {
                             var pick = new WheelCombo
                             {
                                 DropDownStyle = ComboBoxStyle.DropDownList,
-                                Location = new Point(x + 16 + labelW, y),
+                                Location = new Point(editorX, y),
                                 Size = new Size(boxW, 22)
                             };
                             pick.Items.Add("On");
@@ -328,7 +329,7 @@ namespace NH5AiSkillAdjustment
                             editor = new WheelTextBox
                             {
                                 Text = field.Value.ToString("0.####", CultureInfo.InvariantCulture),
-                                Location = new Point(x + 16 + labelW, y),
+                                Location = new Point(editorX, y),
                                 Size = new Size(boxW, 22)
                             };
                         }
@@ -553,16 +554,23 @@ namespace NH5AiSkillAdjustment
 
         private int AddLabeledSlider(string title, string left, string right, bool percent, bool red, int position, int minimum, int maximum, int x, int y, int colW, Action onChange, out SkillSlider slider)
         {
-            const int edge = 140;
+            const int pad = 8;
+            const int gap = 6;
+            var flags = TextFormatFlags.NoPadding | TextFormatFlags.SingleLine;
+            var titleFont = new Font("Segoe UI", 9f, FontStyle.Bold);
+            var endFont = new Font("Segoe UI", 9f);
+            var titleW = TextRenderer.MeasureText(title, titleFont, new Size(int.MaxValue, int.MaxValue), flags).Width;
+            var leftW = TextRenderer.MeasureText(left, endFont, new Size(int.MaxValue, int.MaxValue), flags).Width + 2;
+            var rightW = TextRenderer.MeasureText(right, endFont, new Size(int.MaxValue, int.MaxValue), flags).Width + 2;
             _body.Controls.Add(new Label
             {
                 Text = title,
                 ForeColor = red ? Theme.Red : Theme.Yellow,
                 BackColor = Theme.Asphalt,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                Font = titleFont,
                 AutoEllipsis = true,
-                Location = new Point(x + 8, y + 1),
-                Size = new Size(colW - (percent ? 72 : 16), 16)
+                Location = new Point(x + pad, y + 1),
+                Size = new Size(Math.Max(1, titleW + 4), 16)
             });
             Label? readout = null;
             if (percent)
@@ -572,10 +580,9 @@ namespace NH5AiSkillAdjustment
                     Text = position + "%",
                     ForeColor = red ? Theme.Red : Theme.Yellow,
                     BackColor = Theme.Asphalt,
-                    Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-                    TextAlign = ContentAlignment.MiddleRight,
-                    Location = new Point(x + colW - 64, y + 1),
-                    Size = new Size(52, 16)
+                    Font = titleFont,
+                    Location = new Point(x + pad + titleW + 10, y + 1),
+                    Size = new Size(48, 16)
                 };
                 _body.Controls.Add(readout);
             }
@@ -585,19 +592,22 @@ namespace NH5AiSkillAdjustment
                 Text = left,
                 ForeColor = Theme.White,
                 BackColor = Theme.Asphalt,
-                AutoEllipsis = true,
-                Location = new Point(x + 8, y + 28),
-                Size = new Size(edge - 8, 20)
+                Font = endFont,
+                Location = new Point(x + pad, y + 28),
+                Size = new Size(leftW, 20)
             });
+            const int railMax = 150;
+            var railX = x + pad + leftW + gap;
+            var railRoom = colW - pad - leftW - gap - rightW - gap - pad;
+            var railW = Math.Max(72, Math.Min(railMax, railRoom));
             _body.Controls.Add(new Label
             {
                 Text = right,
                 ForeColor = Theme.White,
                 BackColor = Theme.Asphalt,
-                TextAlign = ContentAlignment.MiddleRight,
-                AutoEllipsis = true,
-                Location = new Point(x + colW - edge, y + 28),
-                Size = new Size(edge - 8, 20)
+                Font = endFont,
+                Location = new Point(railX + railW + gap, y + 28),
+                Size = new Size(rightW, 20)
             });
             slider = new SkillSlider
             {
@@ -609,8 +619,8 @@ namespace NH5AiSkillAdjustment
                 Minimum = minimum,
                 Maximum = maximum,
                 Value = position,
-                Location = new Point(x + edge, y + 16),
-                Size = new Size(Math.Max(40, colW - (edge * 2)), 40),
+                Location = new Point(railX, y + 16),
+                Size = new Size(railW, 40),
                 BackColor = Theme.Asphalt
             };
             var box = readout;
